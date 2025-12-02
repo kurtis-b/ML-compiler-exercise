@@ -54,4 +54,5 @@ with CudaContext() as ctx:
     # Verify results
     print("Verifying results...")
     np.testing.assert_allclose(result, expected_output, rtol=1e-5)
+    print(result)
     print("Success! Results verified.")
