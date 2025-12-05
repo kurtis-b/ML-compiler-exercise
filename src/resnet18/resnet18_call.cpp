@@ -1,6 +1,8 @@
+#include <iomanip>
+#include <iostream>
+
 #include <cstdint>
 #include <cstdio>
-#include <stdio.h>
 
 template <typename T, int N> struct MemRefDescriptor {
   T *allocated;
@@ -18,6 +20,7 @@ void _mlir_ciface_resnet18(MemRefDescriptor<float, 2> *output,
 int main(int argc, char *argv[]) {
   float inputData[1][3][224][224];
   float outputData[1][1000];
+
   for (int k = 0; k < 3; k++) {
     for (int i = 0; i < 224; i++) {
       for (int j = 0; j < 224; j++) {
@@ -32,7 +35,8 @@ int main(int argc, char *argv[]) {
   // Create MemRef descriptors
   int64_t offset = 0;
   int64_t input_sizes[4] = {1, 3, 224, 224};
-  int64_t input_strides[4] = {3*224*224, 224*224, 224, 1}; // row-major layout
+  int64_t input_strides[4] = {3 * 224 * 224, 224 * 224, 224,
+                              1}; // row-major layout
 
   int64_t output_size[2] = {1, 1000};
   int64_t output_strides[2] = {1000, 1}; // row-major layout
@@ -54,14 +58,14 @@ int main(int argc, char *argv[]) {
   // Call the model
   _mlir_ciface_resnet18(&outputMemRef, &inputMemRef);
 
-  float *output_new = (float *)outputMemRef.aligned;
+  float *output = (float *)outputMemRef.aligned;
 
   int count = 0;
   for (int64_t i = 0; i < output_size[1]; ++i) {
-    printf("%.5f ", output_new[i]);
+    std::cout << std::fixed << std::setprecision(5) << output[i] << ' ';
     count++;
   }
-  printf("\nCount = %d\n", count);
+  std::cout << "\nCount =  " << count << "\n";
 
   return 0;
 }
