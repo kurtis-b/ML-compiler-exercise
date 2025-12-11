@@ -5,4 +5,5 @@ Basically I extract the params from the model and manually insert them into the 
 
 ### Benchnmark results:
 - PyTorch avg. inference time (CPU): 0.045876 sec
-- MLIR pipeline avg. inference time (CPU):6.889084 sec
+- MLIR pipeline avg. inference time (CPU): 6.889084 sec
+- MLIR pipeline avg. inference time (GPU): 0.619498 sec

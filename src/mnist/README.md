@@ -6,3 +6,4 @@
 ### Benchnmark results:
 - PyTorch avg. inference time (CPU): 0.000151 sec
 - MLIR pipeline avg. inference time (CPU): 0.000853 sec
+- MLIR pipeline avg. inference time (GPU): 0.005568 sec

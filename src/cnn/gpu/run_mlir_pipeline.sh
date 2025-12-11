@@ -1,3 +1,4 @@
+# Play with tile size for performance (16, 32, 64, 128, 256, ...) 
 mlir-opt cnn_model_linalg.mlir \
   --convert-tensor-to-linalg \
   --linalg-generalize-named-ops \
@@ -6,13 +7,11 @@ mlir-opt cnn_model_linalg.mlir \
   --convert-bufferization-to-memref \
   --llvm-request-c-wrappers \
   --convert-linalg-to-affine-loops \
-  --affine-loop-tile="tile-size=5" \
-  --canonicalize \
-  --cse \
-  --affine-loop-invariant-code-motion \
+  --affine-loop-tile="tile-size=64" \
   --canonicalize \
   --cse \
 | mlir-opt \
+  --pass-pipeline='builtin.module(func.func(affine-loop-invariant-code-motion))' \
   --pass-pipeline='builtin.module(func.func(convert-affine-for-to-gpu))' \
 | mlir-opt \
   --gpu-kernel-outlining \
@@ -32,4 +31,4 @@ mlir-opt cnn_model_linalg.mlir \
 
 mlir-translate -mlir-to-llvmir cnn_nvvm.mlir -o cnn.ll
 
-llc -filetype=obj cnn.ll
+llc -filetype=obj -O3 cnn.ll

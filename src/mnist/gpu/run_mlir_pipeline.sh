@@ -6,13 +6,11 @@ mlir-opt mnist_model_linalg.mlir \
   --convert-bufferization-to-memref \
   --llvm-request-c-wrappers \
   --convert-linalg-to-affine-loops \
-  --affine-loop-tile="tile-size=5" \
-  --canonicalize \
-  --cse \
-  --affine-loop-invariant-code-motion \
+  --affine-loop-tile="tile-size=16" \
   --canonicalize \
   --cse \
 | mlir-opt \
+  --pass-pipeline='builtin.module(func.func(affine-loop-invariant-code-motion))' \
   --pass-pipeline='builtin.module(func.func(convert-affine-for-to-gpu))' \
 | mlir-opt \
   --gpu-kernel-outlining \
@@ -32,4 +30,4 @@ mlir-opt mnist_model_linalg.mlir \
 
 mlir-translate -mlir-to-llvmir mnist_nvvm.mlir -o mnist.ll
 
-llc -filetype=obj mnist.ll
+llc -filetype=obj -O3 mnist.ll
