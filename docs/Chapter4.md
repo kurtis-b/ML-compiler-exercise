@@ -1,9 +1,11 @@
 # Chapter 4: Lowering models to x86 machine code
 
-As in the tutorials, we will use existing passes to lower our models to llvm exit dialect. We create out own pipeline with all the passes, so at the end we only have to run pass that runs them all. This pipeline is defined in tools/tutorials-opt.cpp. There might be different combinations of passes you can run. We add the following passes:
+As mentioned in the tutorials, we will use existing passes to lower our models to the LLVM exit dialect (GPU later). We create our own pipeline with all the passes, so at the end, we only have to run one pass that runs them all. This pipeline is defined in [tools/tutorials-opt.cpp](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/tools/tutorial-opt.cpp). I created two pipelines for demonstration, but they could also be merged. 
+
+The first one creates a bufferized version of the model.
 
 ``` C++
-void linalgToLLVMPipelineBuilder(mlir::OpPassManager &manager) {
+void linalgToBufferizationPipelineBuilder(mlir::OpPassManager &manager) {
   manager.addPass(mlir::createCanonicalizerPass());
   manager.addPass(mlir::createConvertElementwiseToLinalgPass());
   manager.addPass(mlir::createConvertTensorToLinalgPass());
@@ -14,23 +16,40 @@ void linalgToLLVMPipelineBuilder(mlir::OpPassManager &manager) {
   manager.addPass(
       mlir::bufferization::createOneShotBufferizePass(bufferizationOptions));
   mlir::bufferization::BufferDeallocationPipelineOptions deallocationOptions;
-  mlir::bufferization::buildBufferDeallocationPipeline(manager, deallocationOptions);
+  mlir::bufferization::buildBufferDeallocationPipeline(manager,
+                                                       deallocationOptions);
+}
+```
 
+In the second pipeline, we lower the bufferized version of the program down to the LLVM dialect that we can then use to exit the MLIR space, thereby getting closer to our object file. The first pass adds our own, newly created pass, converting Matmuls to OpenBLAS library call (More on that and what the pass looks like later).
+
+``` C++
+std::unique_ptr<mlir::Pass> createConvertMatmulToBlasLibraryCallPass() {
+  return std::make_unique<mlir::tutorial::ConvertMatmulToBlasLibraryCallPass>();
+}
+
+void BufferizationToLLVMPipelineBuilder(mlir::OpPassManager &manager) {
+  // CRITICAL: Replace matmuls with BLAS calls AFTER bufferization but BEFORE
+  // other LLVM conversions
+  manager.addPass(createConvertMatmulToBlasLibraryCallPass());
+
+  // Convert remaining linalg ops to loops
   manager.addPass(mlir::createConvertLinalgToLoopsPass());
 
-  // Needed to lower memref.subview
+  // Standard LLVM lowering pipeline
   manager.addPass(mlir::memref::createExpandStridedMetadataPass());
-  
   manager.addPass(mlir::createLowerAffinePass());
   manager.addPass(mlir::affine::createLoopFusionPass());
   manager.addPass(mlir::affine::createAffineVectorize());
   manager.addPass(mlir::createSCFToControlFlowPass());
-  manager.addPass(mlir::createConvertControlFlowToLLVMPass());
+
+  // Convert to LLVM - order matters here
   manager.addPass(mlir::createArithToLLVMConversionPass());
   manager.addPass(mlir::createConvertMathToLLVMPass());
+  manager.addPass(mlir::createConvertControlFlowToLLVMPass());
   manager.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
-  manager.addPass(mlir::createReconcileUnrealizedCastsPass());
   manager.addPass(mlir::createConvertFuncToLLVMPass());
+  manager.addPass(mlir::createReconcileUnrealizedCastsPass());
 
   // Cleanup
   manager.addPass(mlir::createCanonicalizerPass());
@@ -39,52 +58,72 @@ void linalgToLLVMPipelineBuilder(mlir::OpPassManager &manager) {
   manager.addPass(mlir::createSymbolDCEPass());
 }
 ```
-In an upcoming chapter, we will also use –llvm-request-c-wrappers (you can also add the attribute as in the tutorials) at the beginning that emits a C-friendly callable function that is used to call the model from C later on. Wirth that, we can pass a pointer to the memref struct instead of passing all 5 entries individual. But here we don't use it to illustrate both varients and their difference. 
 
-We can register the pipeline in main() with
+In the main function, we first need to register the dialect and the passes (including our own). We then register our pipelines, giving them names for mlir-opt and a description:
+
 ``` C++
-  mlir::PassPipelineRegistration<>("linalg-to-llvm",
-                             "Run passes to lower the linalg dialect to LLVM",
-                             linalgToLLVMPipelineBuilder);
+  mlir::PassPipelineRegistration<>(
+      "linalg-to-bufferization",
+      "Run passes to lower the linalg dialect to bufferization",
+      linalgToBufferizationPipelineBuilder);
+
+  mlir::PassPipelineRegistration<>(
+      "bufferization-to-llvm", "Run passes to lower bufferized code to LLVM",
+      BufferizationToLLVMPipelineBuilder);
 ```
 
-After this pipeline of passes we have our model in MLIR llvm dialect available. We can then translate the code to llvm ir, leaving the MLIR space:
+After building (using build.sh), our passes/pipelines are available through the use of tutorial-opt, our own extended version of mlir-opt. (Talking about mlir-opt, torch-mlir also has its own torch-mlir-opt. For example, it converts the torch-mlir specific torch dialect into linalg-on-tensor, which we use for our resnet model --> See further down).
 
-`mlir-translate -mlir-to-llvmir $PWD/sample_model_llvm.mlir > $PWD/sample_model_llvm_ir.ll`
+Now we can run the whole pipeline in one step, lowering our model from linalg-on-tensor directly to an executable object file. Thereby, we first call our `linalg-to-bufferization` and `bufferization-to-llvm` pass. As you notice, I also added the `--llvm-request-c-wrappers` pass. That emits a C-friendly callable function, prefixed with _mlir_ciface_ (@_mlir_ciface_sample_model() for our sample model). Through this function, we can call the model from C/C++ in a rather compact way with a so-called MemRefDescriptor struct. Especially for large models (e.g., resnet18), we can just pass this struct containing and wrapping all the inputs. Otherwise, we would need to pass the components of the struct individually.
 
-Then create the object file:
-`llc --filetype=obj $PWD/sample_model_llvm_ir.ll`
+```shell
+# With BLAS integration
+../../build-ninja/tools/tutorial-opt --linalg-to-bufferization $PWD/sample_model_linalg.mlir > $PWD/sample_model_buf_linalg.mlir
+../../build-ninja/tools/tutorial-opt --llvm-request-c-wrappers --bufferization-to-llvm $PWD/sample_model_buf_linalg.mlir > $PWD/sample_model_llvm.mlir
 
+###  Use mlir-translate to get from mlir to llvm ir  ###
+mlir-translate -mlir-to-llvmir $PWD/sample_model_llvm.mlir > $PWD/sample_model_llvm_ir.ll
 
-In our C++ program (sample_model_main.cpp), we initalize the input tensor, set offset, size, and stride. We can then call the sample_model. A memref is returend where we access the data. With the correct memory accessing (consider size and stride) we can print the output.    
+###  Create .obj file  ###
+llc --filetype=obj $PWD/sample_model_llvm_ir.ll
 
-For that, we define a memref struct 
+###  Compile  ###
+g++ -c sample_call.cpp -o sample_call.o && g++ sample_call.o sample_model_llvm_ir.o -o a.out -L../../lib -lopenblas -lm
+```
+
+In our C++ program [sample_call.cpp](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/sample/sample_call.cpp), we initialize the input tensor, set offset, size, and stride, i.e., we initialize our input and output MemRefDescriptor. We can then call the sample_model using the C wrapper interface. We pass both input and output Descriptors to the function and can thus access the output data, for example, via `float *output = (float *)outputMemRef.aligned;`. With the correct memory access (consider size and stride), we can print the output.    
+
+Definition of the MemRefDescriptor struct:
 ``` C++
-    typedef struct {
-        void* allocated;
-        void* aligned;
-        int64_t offset;
-        int64_t sizes[2];
-        int64_t strides[2];
-    } MemRef2D;
+template <typename T, int N> struct MemRefDescriptor {
+  T *allocated;
+  T *aligned;
+  int64_t offset;
+  int64_t sizes[N];
+  int64_t strides[N];
+};
 ```
 
 The function signature of our model looks as follows:
 ``` C++
-    MemRef2D sample_model(
-        void* allocated,
-        void* aligned,
-        int64_t offset,
-        int64_t size0,
-        int64_t size1,
-        int64_t stride0,
-        int64_t stride1
-    );
+void _mlir_ciface_sample_model(MemRefDescriptor<float, 2> *output,
+                               MemRefDescriptor<float, 2> *input);
 ```
 
-Compile and link the code:
-`gcc -c sample_model_main.cpp -o sample_model_main.o && gcc sample_model_main.o sample_model_llvm_ir.o -o a.out`
+We have already compiled and linked the code with our model code.
 
-Run: `./a.out`
+Execute: `./a.out`
 
 The same procedure is also applied for the other dummy models: mnist and cnn
+For the resnet18 and the T5 model, we have to do a little bit more..
+
+## Execution of the T5 model
+The basic structure of [flan_call.cpp](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/transformer/flan_call.cpp) is the same as before. 
+
+In main, we hard-code the tokenized input text (“translate English to German: How are you?”) along with the attention mask, then wrap them in memref descriptors, and initialize the decoder with a start token (0).
+
+We then enter a loop that simulates step-by-step text generation. At each step, we allocate a logit buffer for the vocabulary (size 32,128), call the Transformer model with the current decoder sequence, and verify that the model actually writes to the output buffer. We filter invalid values, find the top-5 token predictions by score, print them, and greedily select the highest-scoring token as the next decoder token. Generation stops early if the end-of-sequence token (1) is produced or after 10 steps have been taken. Finally, the full generated token sequence is printed to the console and appended to a file called final_sequence.txt.
+
+In [decode_sequence.py](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/transformer/decode_sequence.py), we decode a sequence of token IDs using the T5 tokenizer. In this case, we open the produced file from flan_call.cpp that holds the sequence to be decoded. It then prints the decoded sequence.  
+
+With the [generate_and_decode.sh](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/transformer/generate_and_decode.sh) script, we execute our binary and decode the produced sequence afterwards.

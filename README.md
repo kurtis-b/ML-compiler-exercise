@@ -22,9 +22,9 @@ Additionally, I created a pass that converts linalg.matmul's to [OpenBLAS](https
 3. [Importing PyTorch models to torch-mlir](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter3.md)
 4. [Lowering models to x86 machine code](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter4.md)
 5. [Integration of OpenBLAS for Matrix Multiplications](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter5.md)
-6. [Integration of real CNN (ResNet18) and transformer model (google-flan-t5)](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter6.md)
-7. [Targeting Nvidia GPU](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter7.md)
-8. *Appendix*: [An overview of IREE](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/iree_appendix.md)
+6. [Targeting Nvidia GPU](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter6.md)
+
+*Appendix*: [An overview of IREE](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/iree_appendix.md)
 
 ## Build
 See [Chapter 2](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter2.md) in the docs.
