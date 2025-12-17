@@ -28,7 +28,7 @@ private:
   StringRef getArgument() const final { return "convert-matmul-to-blas"; }
 
   StringRef getDescription() const final {
-    return "Convert linalg.matmul operations to CBLAS function calls";
+    return "Convert linalg.matmul operations to OpenBLAS function calls";
   }
 };
 

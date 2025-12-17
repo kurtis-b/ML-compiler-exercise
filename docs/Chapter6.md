@@ -1,1 +1,0 @@
-# Chapter 6: Integration of real CNN (ResNet18) and transformer model (google-flan-t5)
