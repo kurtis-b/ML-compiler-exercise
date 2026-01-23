@@ -4,16 +4,22 @@
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
+#include "mlir/Conversion/MathToLibm/MathToLibm.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/TensorToLinalg/TensorToLinalgPass.h"
+#include "mlir/Dialect/Affine/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Linalg/Passes.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassRegistry.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
-
+#include "mlir/Transforms/Passes.h"
 
 // Todo: Create own pass to convert matmul to BLAS calls
 std::unique_ptr<mlir::Pass> createConvertMatmulToBlasLibraryCallPass() {
@@ -22,7 +28,6 @@ std::unique_ptr<mlir::Pass> createConvertMatmulToBlasLibraryCallPass() {
 
 void linalgToBufferizationPipelineBuilder(mlir::OpPassManager &manager) {
   manager.addPass(mlir::createCanonicalizerPass());
-  manager.addPass(mlir::createConvertElementwiseToLinalgPass());
   manager.addPass(mlir::createConvertTensorToLinalgPass());
 
   // One-shot bufferize
@@ -52,6 +57,8 @@ void BufferizationToLLVMPipelineBuilder(mlir::OpPassManager &manager) {
 
   // Convert to LLVM - order matters here
   manager.addPass(mlir::createArithToLLVMConversionPass());
+  manager.addPass(
+      mlir::createConvertMathToLibmPass()); // For bert model to lower math.erf
   manager.addPass(mlir::createConvertMathToLLVMPass());
   manager.addPass(mlir::createConvertControlFlowToLLVMPass());
   manager.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());

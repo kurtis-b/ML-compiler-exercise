@@ -7,6 +7,8 @@ set (LIBS
     ConvertMatMulToBlas
     MLIROptLib
     MLIRPass
+    MLIRRegisterAllDialects
+    MLIRRegisterAllPasses
 )
 
 add_llvm_executable(tutorial-opt tutorial-opt.cpp)
