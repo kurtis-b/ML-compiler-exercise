@@ -14,5 +14,5 @@ llc --filetype=obj $PWD/flan_llvm_ir.ll
 g++ -c flan_call.cpp -o flan_call.o && g++ flan_call.o flan_llvm_ir.o -o a.out \
 	-lm \
 	-L../../externals/torch-mlir/build/lib -lmlir_c_runner_utils \
-	-L../../lib -lopenblas \
+	-L../../openblas/lib -lopenblas \
 	-Wl,-rpath=../../externals/torch-mlir/build/lib 

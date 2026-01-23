@@ -13,5 +13,5 @@ llc --filetype=obj $PWD/mnist_model_llvm_ir.ll
 ###  Compile  ###
 g++ -c mnist_call.cpp -o mnist_call.o && g++ mnist_call.o mnist_model_llvm_ir.o -o a.out \
 	-L../../externals/torch-mlir/build/lib -lmlir_c_runner_utils \
-	-L../../lib -lopenblas \
+	-L../../openblas/lib -lopenblas \
 	-Wl,-rpath=../../externals/torch-mlir/build/lib

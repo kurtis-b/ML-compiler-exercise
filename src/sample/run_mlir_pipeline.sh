@@ -11,4 +11,4 @@ mlir-translate -mlir-to-llvmir $PWD/sample_model_llvm.mlir > $PWD/sample_model_l
 llc --filetype=obj $PWD/sample_model_llvm_ir.ll
 
 ###  Compile  ###
-g++ -c sample_call.cpp -o sample_call.o && g++ sample_call.o sample_model_llvm_ir.o -o a.out -L../../lib -lopenblas -lm
+g++ -c sample_call.cpp -o sample_call.o && g++ sample_call.o sample_model_llvm_ir.o -o a.out -L../../openblas/lib -lopenblas -lm

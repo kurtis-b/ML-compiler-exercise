@@ -12,5 +12,5 @@ llc --filetype=obj $PWD/cnn_model_llvm_ir.ll
 
 ###  Compile  ###
 g++ -c cnn_call.cpp -o cnn_call.o && g++ cnn_call.o cnn_model_llvm_ir.o -o a.out \
-	-L../../lib -lopenblas \
+	-L../../openblas/lib -lopenblas \
 	-lm

@@ -16,5 +16,5 @@ llc --filetype=obj $PWD/resnet18_model_llvm_ir.ll
 ###  Compile  ###
 g++ -c resnet18_call.cpp -o resnet18_call.o && g++ resnet18_call.o resnet18_model_llvm_ir.o -o a.out \
 	-L../../externals/torch-mlir/build/lib -lmlir_c_runner_utils \
-	-L../../lib -lopenblas \
+	-L../../openblas/lib -lopenblas \
 	-Wl,-rpath=../../externals/torch-mlir/build/lib
