@@ -67,7 +67,7 @@ def lower_pytorch_to_linalg_on_tensors():
     #mlir_ir = mlir_str.split("{-#")[0].strip()
     #print(mlir_ir)
 
-    with open("a.mlir", "w") as f:
+    with open("sample_model_linalg.mlir", "w") as f:
         f.write(mlir_str)
 
 
