@@ -11,7 +11,7 @@ mlir-translate -mlir-to-llvmir $PWD/flan_llvm.mlir > $PWD/flan_llvm_ir.ll
 llc --filetype=obj $PWD/flan_llvm_ir.ll
 
 ###  Compile  ###
-g++ -c flan_call.cpp -o flan_call.o && g++ flan_call.o full_llvm_ir.o -o a.out \
+g++ -c flan_call.cpp -o flan_call.o && g++ flan_call.o flan_llvm_ir.o -o a.out \
 	-lm \
 	-L../../externals/torch-mlir/build/lib -lmlir_c_runner_utils \
 	-L../../lib -lopenblas \
