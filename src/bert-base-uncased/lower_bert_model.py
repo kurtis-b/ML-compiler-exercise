@@ -8,15 +8,14 @@ class Wrapper(torch.nn.Module):
     def __init__(self, model):
         super().__init__()
         self.model = model
-
+        
     def forward(self, input_ids, token_type_ids, attention_mask):
         outputs = self.model(
             input_ids=input_ids,
             token_type_ids=token_type_ids,
             attention_mask=attention_mask
         )
-        return outputs.last_hidden_state
-
+        return outputs.last_hidden_state , outputs.pooler_output
 
 """ Exports the bert model to Linalg on Tensors dialect in MLIR."""
 def export_model():
@@ -34,18 +33,19 @@ def export_model():
             encoded_input["input_ids"],
             encoded_input["token_type_ids"],
             encoded_input["attention_mask"],
-        )
+        ),
     )
+    
+    ep = ep.run_decompositions()    
 
-    ep = ep.run_decompositions()
     m = fx.export_and_import(
         ep,
-        output_type=OutputType.LINALG_ON_TENSORS,
+        output_type=OutputType.TORCH,
         func_name="bert_model"
     )
 
     mlir_str = str(m)
-    with open("bert_linalg.mlir", "w") as f:
+    with open("bert_torch.mlir", "w") as f:
         f.write(mlir_str)
 
 if __name__ == "__main__":

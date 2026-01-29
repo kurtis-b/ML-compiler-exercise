@@ -20,6 +20,7 @@ build*/
 *.log
 *.txt
 core.*
+*.csv
 
 # Python subdir artifacts
 src/*/*.{mlir,ll,o,out,txt}

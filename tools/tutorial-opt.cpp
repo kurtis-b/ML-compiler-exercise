@@ -57,9 +57,9 @@ void BufferizationToLLVMPipelineBuilder(mlir::OpPassManager &manager) {
 
   // Convert to LLVM - order matters here
   manager.addPass(mlir::createArithToLLVMConversionPass());
+  manager.addPass(mlir::createConvertMathToLLVMPass());
   manager.addPass(
       mlir::createConvertMathToLibmPass()); // For bert model to lower math.erf
-  manager.addPass(mlir::createConvertMathToLLVMPass());
   manager.addPass(mlir::createConvertControlFlowToLLVMPass());
   manager.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
   manager.addPass(mlir::createConvertFuncToLLVMPass());

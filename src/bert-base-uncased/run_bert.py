@@ -2,11 +2,13 @@ from transformers import BertTokenizer, BertModel
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 model = BertModel.from_pretrained("bert-base-uncased")
-text = "Replace me by any text you'd like."
+text = "This is a sample input for BERT model export."
 encoded_input = tokenizer(text, return_tensors='pt')
 
-print(encoded_input)
+print("Input: ", encoded_input)
 
 output = model(**encoded_input)
 
-print(output.shape)
+print("Output: ", output)
+print(output.last_hidden_state.shape)
+print(output.pooler_output.shape)
