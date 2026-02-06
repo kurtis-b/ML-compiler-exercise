@@ -98,7 +98,7 @@ Here we pass:
 
 - an example input tensor,
 
-- the desired output dialects used (e.g., TORCH, LINALG_ON_TENSORS),
+- the desired output dialects used, e.g., TORCH, LINALG_ON_TENSORS (If it works, we use LINALG_ON_TENSORS so we directly leave torch-mlir behind),
 
 - and the function name that will appear in the generated MLIR.
 
@@ -178,12 +178,10 @@ module {
 Looking at this code, we can see that it has no torch ops anymore, so it only depends on upstream MLIR dialects. With this code, we can continue with the lowering process in the next chapter.
 
 
-## Importing the resnet18 model
-Back when I included the resnet18 model, I couldn't directly lower the model to linalg-on-tensors. So, I first lower with torch-mlir to torch dialect and then use the following pass (from torch-mlir-opt) to get to linalg-on-tensors:
+## When the import to LINALG_ON_TENSORS breaks
+Currently, when trying to lower bert and gpt2 to LINALG_ON_TENSORS, it fails with `error: failed to legalize operation 'torch.constant.int'`. However, when you first lower with torch-mlir to the torch dialect (i.e. TORCH) and then use `-torch-backend-to-linalg-on-tensors-backend-pipeline` we get to the representation we want (i.e. LINALG_ON_TENSORS):
 
 ```shell
 # torch-mlir: Convert from torch dialect to linalg dialect
-../../externals/torch-mlir/build/bin/torch-mlir-opt --torch-backend-to-linalg-on-tensors-backend-pipeline $PWD/resnet18_model_torch.mlir > $PWD/resnet18_model_linalg.mlir
+torch-mlir-opt --torch-backend-to-linalg-on-tensors-backend-pipeline resnet18_model_torch.mlir > resnet18_model_linalg.mlir
 ```
-
-when impoting the resnet model to torch-mlir (using torch.export()) many params of the model are expected to be passed as input. The number of input tensors increases from 1 to over 500. By now, I extract the params from the PyTorch model ((get_params_resnet18.py)[https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/resnet18/get_params_resnet18.py]) and hard code them into the mlir model. I could not yet find way to automaticlly bypass this situation via PyTorch or torch-mlir. (So, if anyone has an idea, just ping me) 

@@ -7,7 +7,6 @@ The first one creates a bufferized version of the model.
 ``` C++
 void linalgToBufferizationPipelineBuilder(mlir::OpPassManager &manager) {
   manager.addPass(mlir::createCanonicalizerPass());
-  manager.addPass(mlir::createConvertElementwiseToLinalgPass());
   manager.addPass(mlir::createConvertTensorToLinalgPass());
 
   // One-shot bufferize
@@ -46,6 +45,8 @@ void BufferizationToLLVMPipelineBuilder(mlir::OpPassManager &manager) {
   // Convert to LLVM - order matters here
   manager.addPass(mlir::createArithToLLVMConversionPass());
   manager.addPass(mlir::createConvertMathToLLVMPass());
+  manager.addPass(
+      mlir::createConvertMathToLibmPass()); // For bert model to lower math.erf
   manager.addPass(mlir::createConvertControlFlowToLLVMPass());
   manager.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
   manager.addPass(mlir::createConvertFuncToLLVMPass());
@@ -115,15 +116,35 @@ We have already compiled and linked the code with our model code.
 Execute: `./a.out`
 
 The same procedure is also applied for the other dummy models: mnist and cnn
-For the resnet18 and the T5 model, we have to do a little bit more..
 
-## Execution of the T5 model
-The basic structure of [flan_call.cpp](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/transformer/flan_call.cpp) is the same as before. 
+For the other models, we have to do a little bit more..
 
-In main, we hard-code the tokenized input text (“translate English to German: How are you?”) along with the attention mask, then wrap them in memref descriptors, and initialize the decoder with a start token (0).
+## Passing buffers as inputs
+When importing resnet, bert, gpt2 to torch-mlir (using torch.export()) some buffers of the model are moved out and are now part of the input. This seems to be the current default in torch-mlir/torch.export, as they also extract the buffers before executing the model in [this](https://github.com/llvm/torch-mlir/blob/main/projects/pt1/examples/fximporter_resnet18.py#L43) example.   
+- For the resnet18 model, I extract the params from the PyTorch model ((get_buffers_in_mlir_format.py)[https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/resnet18/get_buffers_in_mlir_format.py]) and hard code them into the mlir model. 
+- For the bert model, I [extract](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/bert-base-uncased/get_buffers.py) those buffers and directly write them to a .csv file. That file is later loaded in our C++ program. Here it is just two tensors, whereas for the resnet is about 60 arguments. Also, for the resnet model, in the MLIR code every third argument is of type !torch.vtensor<[],si64> and they are nowhere used in the code. GPT2 has also up to 20 arguments that are not used in the code. I couldn't find a pass that cleans up those dead/unused arguments. Neither in torch-mlir-opt, nor in mlir-opt. 
 
-We then enter a loop that simulates step-by-step text generation. At each step, we allocate a logit buffer for the vocabulary (size 32,128), call the Transformer model with the current decoder sequence, and verify that the model actually writes to the output buffer. We filter invalid values, find the top-5 token predictions by score, print them, and greedily select the highest-scoring token as the next decoder token. Generation stops early if the end-of-sequence token (1) is produced or after 10 steps have been taken. Finally, the full generated token sequence is printed to the console and appended to a file called final_sequence.txt.
+## Execution of bert-base-uncased
+The basic structure of [call_bert.cpp](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/bert-base-uncased/call_bert.cpp) is the same as before. 
 
-In [decode_sequence.py](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/transformer/decode_sequence.py), we decode a sequence of token IDs using the T5 tokenizer. In this case, we open the produced file from flan_call.cpp that holds the sequence to be decoded. It then prints the decoded sequence.  
+But a few things have changed:
+1. We have a load_tensor() function that loads the buffers that we have previously written in a .csv file. We can now use this data and pass it to    our model as well.
 
-With the [generate_and_decode.sh](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/transformer/generate_and_decode.sh) script, we execute our binary and decode the produced sequence afterwards.
+2. The model has two outputs: last_hidden_state and pooler_output. I defined the following struct:
+```C++
+struct Output {
+  MemRefDescriptor<float, 3> output_last_hidden_state_MemRef;
+  MemRefDescriptor<float, 2> output_pooler_output_MemRef;
+};
+```
+Here, we can now fit out Memrefs for those two output buffers and pass this struct to the model as the output buffer.
+
+3. In torch-mlir, I added [AtenAnyDimOp](https://github.com/DavidGinten/torch-mlir/blob/97bf9d2e6313abae5eb890748207baa178caeddf/lib/Conversion/TorchToLinalg/Reduction.cpp) in the reduction pass of TorchToLinalg. Without that, the op aten.any.dim.op wouldn't be lowered and that also keeps torch.constant.int op from being lowered to arith.constant. This then results in a `error: failed to legalize operation 'torch.constant.int'`. As mentioned in Chapter 3, the direct export to LINALG_ON_TENSORS still fails with this error, however, first going to TORCH and then to linalg via `-torch-backend-to-linalg-on-tensors-backend-pipeline` works. 
+
+## Execution of google's flan-t5-small
+For this model, I created dynmaic input_ids and output_ids. I use pybind11, so that we are able to call our model with varying inputs from python. Then the produced output tokens are also directly decoded into text. **In principle, this can be adapted for all the other models as well.**
+
+So we dynmically get out input tokens and wrap them in memref descriptors. We also initialize the decoder with a start token (0).
+
+We then enter a loop that simulates step-by-step text generation. At each step, we allocate a logit buffer for the vocabulary (size 32,128), call the model with the current decoder sequence, and verify that the model actually writes to the output buffer. We filter invalid values, find the top-5 token predictions by score, print them, and greedily select the highest-scoring token as the next decoder token. Generation stops early if the end-of-sequence token (1) is produced or after 20 steps have been taken. Finally, the full generated token sequence is returned back to python where we print and decode the tokens.
+

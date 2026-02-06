@@ -43,6 +43,8 @@ cmake -GNinja -Bbuild \
   -DLLVM_TARGETS_TO_BUILD=host \
   -DCMAKE_C_COMPILER=clang \
   -DCMAKE_CXX_COMPILER=clang++ \
+  -DLLVM_ENABLE_LLD=ON \
+  -DLLVM_CCACHE_BUILD=ON \
   `# For building LLVM "in-tree"` \
   externals/llvm-project/llvm \
   -DLLVM_ENABLE_PROJECTS=mlir \
@@ -82,13 +84,8 @@ cmake -GNinja -Bbuild \
   -DTORCH_MLIR_ENABLE_JIT_IR_IMPORTER=ON \
 ```
 
-Build (and initial testing)
-`cmake --build build --target check-torch-mlir --target check-torch_mlir-python`
+Then build with ninja: `ninja -C build`
 
-Or use Ninja directly
-`ninja -C build`
-
-Tests: `ninja check-torch-mlir check-torch-mlir-python`
 
 In dev/bin/activate, add the following (adapt the path if necessary):
 ```
