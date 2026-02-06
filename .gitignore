@@ -16,6 +16,7 @@ build*/
 !tests/**/*.mlir
 *.ll
 *.o
+*.so
 *.out
 *.log
 *.txt

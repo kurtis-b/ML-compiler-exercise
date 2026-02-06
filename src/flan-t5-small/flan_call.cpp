@@ -5,7 +5,10 @@
 #include <iomanip>
 #include <iostream>
 #include <vector>
-#include <fstream>
+
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
 
 const int64_t VOCAB_SIZE = 32128;
 const int64_t PAD_TOKEN = 0;
@@ -21,7 +24,7 @@ template <typename T, int N> struct MemRefDescriptor {
 };
 
 extern "C" {
-void _mlir_ciface_transformer_model(
+void _mlir_ciface_flan_decoder(
     MemRefDescriptor<float, 3> *output,  // 3D output!
     MemRefDescriptor<int64_t, 2> *input_ids,
     MemRefDescriptor<int64_t, 2> *attention_mask,
@@ -29,32 +32,17 @@ void _mlir_ciface_transformer_model(
     MemRefDescriptor<int64_t, 2> *decoder_attention_mask);
 }
 
-void write_to_file(const std::vector<int64_t>& vec){
-    std::ofstream outfile("final_sequence.txt", std::ios_base::app);
-    if (outfile.is_open()) {
-        for (const auto& val : vec) {
-            outfile << val << " ";
-        }
-        outfile.close();
-    } else {
-        std::cerr << "Unable to open file for logging.\n";
-    }
-}
-
-int main(int argc, char *argv[]) {
-  // Encoder input: "translate English to German: How are you?"
-  int64_t input_ids[1][10] = {{13959, 1566, 12, 2968, 10, 571, 33, 25, 58, 1}};
-  int64_t encoder_attention_mask[1][10] = {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
-
+std::vector<int64_t> generate_tokens(std::vector<int64_t>& input_ids, std::vector<int64_t>& attention_mask) {
   int64_t offset = 0;
+  int64_t input_size = static_cast<int64_t>(input_ids.size());
   MemRefDescriptor<int64_t, 2> input_ids_MemRef = {
-      (int64_t *)input_ids, (int64_t *)input_ids, offset, {1, 10}, {10, 1}};
+      input_ids.data(), input_ids.data(), offset, {1, input_size},{input_size, 1}};
   MemRefDescriptor<int64_t, 2> encoder_attention_mask_MemRef = {
-      (int64_t *)encoder_attention_mask,
-      (int64_t *)encoder_attention_mask,
+      attention_mask.data(),
+      attention_mask.data(),
       offset,
-      {1, 10},
-      {10, 1}};
+      {1, input_size},
+      {input_size, 1}};
 
   // Decoder buffers
   int64_t decoder_input_ids_padded[1][MAX_DECODER_LEN];
@@ -123,7 +111,7 @@ int main(int argc, char *argv[]) {
         {MAX_DECODER_LEN * VOCAB_SIZE, VOCAB_SIZE, 1}};
 
     std::cout << "Calling model...\n";
-    _mlir_ciface_transformer_model(
+    _mlir_ciface_flan_decoder(
         &outputMemRef,
         &input_ids_MemRef,
         &encoder_attention_mask_MemRef,
@@ -183,12 +171,12 @@ int main(int argc, char *argv[]) {
     int64_t next_token = scores[0].second;
     std::cout << "→ Selected: " << next_token << "\n";
 
+    generated_tokens.push_back(next_token);
+
     if (next_token == EOS_TOKEN) {
       std::cout << "✓ EOS token generated, stopping.\n";
       break;
     }
-
-    generated_tokens.push_back(next_token);
   }
 
   std::cout << "\n" << std::string(60, '=') << "\n";
@@ -200,7 +188,9 @@ int main(int argc, char *argv[]) {
   std::cout << "]\n";
   std::cout << std::string(60, '=') << "\n";
 
-  write_to_file(generated_tokens);
+  return generated_tokens;
+}
 
-  return 0;
+PYBIND11_MODULE(flan_call, m) {
+    m.def("generate_tokens", &generate_tokens, "TODO");
 }

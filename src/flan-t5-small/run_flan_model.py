@@ -8,14 +8,15 @@ tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-small")
 
 model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-small")
 
-input_text = "translate English to German: How are you?"
-input_ids = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True).input_ids
+input_text = "translate English to German: What is your name?"
+input = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True)
 
 print(f'Input text: "{input_text}"')
-print("Corresponding input IDs: ", input_ids)
+print("Corresponding input IDs: ", input.input_ids)
+print("Corresponding attention: ", input.attention_mask)
 
 # Run the model to get output IDs
-outputs = model.generate(input_ids)
+outputs = model.generate(input.input_ids)
 
 print("Output IDs: ", outputs)
 print("Decoded output: ", tokenizer.decode(outputs[0]))
