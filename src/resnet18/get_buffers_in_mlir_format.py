@@ -1,4 +1,4 @@
-" Get ResNet-18 model parameters and write them to a file in hex format. "
+" Get ResNet-18 model buffers and write them to a file in hex format. "
 
 import struct
 from transformers import AutoModelForImageClassification

@@ -1,8 +1,7 @@
-#include <iomanip>
-#include <iostream>
-
 #include <cstdint>
 #include <cstdio>
+#include <iomanip>
+#include <iostream>
 
 template <typename T, int N> struct MemRefDescriptor {
   T *allocated;

@@ -55,7 +55,7 @@ def lower_pytorch_to_torch_mlir():
     """ Print without builtin dialect_resources """
     #mlir_ir = mlir_str.split("{-#")[0].strip()
     #print(mlir_ir)
-    with open("resnet18_model_torch_test.mlir", "w") as f:
+    with open("resnet18_model_torch.mlir", "w") as f:
         f.write(mlir_str)
 
 @run
