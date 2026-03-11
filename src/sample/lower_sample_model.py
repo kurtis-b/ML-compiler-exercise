@@ -73,6 +73,6 @@ def lower_pytorch_to_linalg_on_tensors():
 
 if __name__ == "__main__":
     lower_pytorch_to_linalg_on_tensors()
-    #lower_pytorch_to_torch_mlir()
-    #lower_pytorch_to_raw_output()
-    #lower_pytorch_to_torch_fx()
+    lower_pytorch_to_torch_mlir()
+    lower_pytorch_to_raw_output()
+    lower_pytorch_to_torch_fx()
