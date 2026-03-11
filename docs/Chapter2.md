@@ -66,5 +66,12 @@ export PATH="~/ml-compiler-exercise/externals/torch-mlir/build/bin/:$PATH"
 export PYTHONPATH=~/ml-compiler-exercise/externals/torch-mlir/build/tools/mlir/python_packages/mlir_core:~/ml-compiler-exercise/externals/torch-mlir/build/tools/torch-mlir/python_packages/torch_mlir:~/ml-compiler-exercise/externals/torch-mlir/test/python/fx_importer
 ```
 
+Create the .env file by running 
+```
+./build_tools/write_env_file.sh
+source ./.env
+mv ./.venv ../../
+```
+
 Test the build works by going to [projects/pt1](../externals/torch-mlir/projects/pt1/) and running
 `./tools/e2e_test.sh`

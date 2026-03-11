@@ -1,7 +1,7 @@
 # Chapter 3: Importing PyTorch models to torch-mlir
 We will now look at how to import PyTorch models to torch-mlir and how it outputs MLIR code in the torch dialect (no upstream MLIR dialect) and in linalg-on-tensor form. (There's also the RAW output, but we will not use it here.)
 Thereby, linalg-on-tensor is a combination of linalg, arith, and other base dialects.
-The procedure is basically the same for all models (except for the transformer; see further below). It's implemented in the "lower_\<model_name\>_python.py" files. Here we'll take a look at [lower_sample_model.py](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/sample/lower_sample_model.py).
+The procedure is basically the same for all models (except for the transformer; see further below). It's implemented in the "lower_\<model_name\>_python.py" files. Here we'll take a look at [lower_sample_model.py](../src/sample/lower_sample_model.py).
 
 The simple sample model looks like this:
 ```python
@@ -17,13 +17,13 @@ class MyModule(nn.Module):
 This model basically adds a bias term to x, performs a linear transformation (y = xW^T + b), and clamps the output to 0 and 1 (0 < y < 1). The output shape will be 3x5.
 
 ## Execute the models with PyTorch
-You can execute [run_sample_model.py](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/sample/run_sample_model.py) to run the model with random but constant inputs. This file also exists for all other models.
+You can execute [run_sample_model.py](../src/sample/run_sample_model.py) to run the model with random but constant inputs. This file also exists for all other models.
 
 ## Benchmark the models in PyTorch
-Run [benchmark_sample_model.py](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/sample/benchmark_sample_model.py) to benchmark the model with random but constant inputs. After a warm-up phase, it calls the model 100 times and reports the average inference time. This file also exists for all other models. For the transformer model, the number of iterations is dropped to 10 due to its size.
+Run [benchmark_sample_model.py](../src/sample/benchmark_sample_model.py) to benchmark the model with random but constant inputs. After a warm-up phase, it calls the model 100 times and reports the average inference time. This file also exists for all other models. For the transformer model, the number of iterations is dropped to 10 due to its size.
 
 ## Importing a transformer model
-The following refers to this [file](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/transformer/lower_flan_model.py).
+The following refers to this [file](../src/transformer/lower_flan_model.py).
 The T5 model I use here in generall has a complex forward() signature:
 
 ```python
