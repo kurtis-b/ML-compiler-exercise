@@ -56,15 +56,16 @@ config.test_exec_root = os.path.join(config.project_binary_dir, "test")
 config.project_tools_dir = os.path.join(config.project_binary_dir, "tools")
 
 # Tweak the PATH to include the tools dir.
+llvm_config.with_environment("PATH", config.project_tools_dir, append_path=True)
 llvm_config.with_environment("PATH", config.llvm_tools_dir, append_path=True)
 
 tool_dirs = [config.project_tools_dir, config.llvm_tools_dir]
 tools = [
     "mlir-opt",
     "mlir-runner",
+    "tutorial-opt",
     "torch-mlir-opt",
 ]
-print("The path:", config.llvm_tools_dir)
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
 #llvm_config.with_environment(

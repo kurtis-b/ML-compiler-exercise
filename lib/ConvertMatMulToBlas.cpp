@@ -19,18 +19,11 @@ struct MatmulOpToBlasLibraryCall : public ConversionPattern {
     auto matmulOp = cast<linalg::MatmulOp>(op);
     Location loc = matmulOp.getLoc();
 
-    // Debug: Print information about the operation
-    llvm::errs() << "Processing matmul with " << operands.size()
-                 << " operands\n";
-    llvm::errs() << "Number of inputs: " << matmulOp.getNumDpsInputs() << "\n";
-    llvm::errs() << "Number of outputs: " << matmulOp.getNumDpsInits() << "\n";
-
     // Get inputs and outputs using the proper accessors
     auto inputs = matmulOp.getDpsInputs();
     auto outputs = matmulOp.getDpsInits();
 
     if (inputs.size() != 2 || outputs.size() != 1) {
-      llvm::errs() << "Unexpected number of inputs/outputs\n";
       return failure();
     }
 
@@ -44,27 +37,16 @@ struct MatmulOpToBlasLibraryCall : public ConversionPattern {
     auto rhsType = dyn_cast<MemRefType>(originalRhs.getType());
     auto outputType = dyn_cast<MemRefType>(originalOutput.getType());
 
-    llvm::errs() << "Original LHS type: " << lhsType << "\n";
-    llvm::errs() << "Original RHS type: " << rhsType << "\n";
-    llvm::errs() << "Original Output type: " << outputType << "\n";
-
     if (!lhsType || !rhsType || !outputType || lhsType.getRank() != 2 ||
         rhsType.getRank() != 2 || outputType.getRank() != 2 ||
         !lhsType.getElementType().isF32()) {
-      llvm::errs() << "Type check failed\n";
       return failure();
     }
-
-    llvm::errs() << "Type check passed\n";
 
     // Now get the converted operands (these should be LLVM struct types)
     Value lhs = operands[0];    // First input (converted)
     Value rhs = operands[1];    // Second input (converted)
     Value output = operands[2]; // Output (converted)
-
-    llvm::errs() << "Converted LHS type: " << lhs.getType() << "\n";
-    llvm::errs() << "Converted RHS type: " << rhs.getType() << "\n";
-    llvm::errs() << "Converted Output type: " << output.getType() << "\n";
 
     // Extract matrix dimensions from ORIGINAL types
     auto lhsShape = lhsType.getShape();
@@ -81,13 +63,16 @@ struct MatmulOpToBlasLibraryCall : public ConversionPattern {
     LLVM::LLVMFuncOp sgemmFunc = getOrCreateSgemmFunc(module, rewriter);
 
     // Create constants for cblas_sgemm parameters
-    Value order = rewriter.create<LLVM::ConstantOp>(
+    Value order = LLVM::ConstantOp::create(
+        rewriter,
         loc, i32Type,
         rewriter.getI32IntegerAttr(101)); // CblasRowMajor
-    Value transA = rewriter.create<LLVM::ConstantOp>(
+    Value transA = LLVM::ConstantOp::create(
+        rewriter,
         loc, i32Type,
         rewriter.getI32IntegerAttr(111)); // CblasNoTrans
-    Value transB = rewriter.create<LLVM::ConstantOp>(
+    Value transB = LLVM::ConstantOp::create(
+        rewriter,
         loc, i32Type,
         rewriter.getI32IntegerAttr(111)); // CblasNoTrans
 
@@ -95,61 +80,70 @@ struct MatmulOpToBlasLibraryCall : public ConversionPattern {
     Value M, N, K, ldA, ldB, ldC;
 
     if (lhsShape[0] != ShapedType::kDynamic) {
-      M = rewriter.create<LLVM::ConstantOp>(
+      M = LLVM::ConstantOp::create(
+          rewriter,
           loc, i32Type, rewriter.getI32IntegerAttr(lhsShape[0]));
     } else {
       // Use original operand for dimension extraction, then convert to i32
-      Value dimM = rewriter.create<memref::DimOp>(loc, originalLhs, 0);
-      M = rewriter.create<arith::IndexCastOp>(loc, i32Type, dimM);
+      Value dimM = memref::DimOp::create(rewriter, loc, originalLhs, 0);
+      M = arith::IndexCastOp::create(rewriter, loc, i32Type, dimM);
     }
 
     if (rhsShape[1] != ShapedType::kDynamic) {
-      N = rewriter.create<LLVM::ConstantOp>(
+      N = LLVM::ConstantOp::create(
+          rewriter,
           loc, i32Type, rewriter.getI32IntegerAttr(rhsShape[1]));
     } else {
-      Value dimN = rewriter.create<memref::DimOp>(loc, originalRhs, 1);
-      N = rewriter.create<arith::IndexCastOp>(loc, i32Type, dimN);
+      Value dimN = memref::DimOp::create(rewriter, loc, originalRhs, 1);
+      N = arith::IndexCastOp::create(rewriter, loc, i32Type, dimN);
     }
 
     if (lhsShape[1] != ShapedType::kDynamic) {
-      K = rewriter.create<LLVM::ConstantOp>(
+      K = LLVM::ConstantOp::create(
+          rewriter,
           loc, i32Type, rewriter.getI32IntegerAttr(lhsShape[1]));
-      ldA = rewriter.create<LLVM::ConstantOp>(
+      ldA = LLVM::ConstantOp::create(
+          rewriter,
           loc, i32Type, rewriter.getI32IntegerAttr(lhsShape[1]));
     } else {
-      Value dimK = rewriter.create<memref::DimOp>(loc, originalLhs, 1);
-      K = rewriter.create<arith::IndexCastOp>(loc, i32Type, dimK);
+      Value dimK = memref::DimOp::create(rewriter, loc, originalLhs, 1);
+      K = arith::IndexCastOp::create(rewriter, loc, i32Type, dimK);
       ldA = K;
     }
 
     if (rhsShape[1] != ShapedType::kDynamic) {
-      ldB = rewriter.create<LLVM::ConstantOp>(
+      ldB = LLVM::ConstantOp::create(
+          rewriter,
           loc, i32Type, rewriter.getI32IntegerAttr(rhsShape[1]));
     } else {
-      Value dimLdB = rewriter.create<memref::DimOp>(loc, originalRhs, 1);
-      ldB = rewriter.create<arith::IndexCastOp>(loc, i32Type, dimLdB);
+      Value dimLdB = memref::DimOp::create(rewriter, loc, originalRhs, 1);
+      ldB = arith::IndexCastOp::create(rewriter, loc, i32Type, dimLdB);
     }
 
     if (outputShape[1] != ShapedType::kDynamic) {
-      ldC = rewriter.create<LLVM::ConstantOp>(
+      ldC = LLVM::ConstantOp::create(
+          rewriter,
           loc, i32Type, rewriter.getI32IntegerAttr(outputShape[1]));
     } else {
-      Value dimLdC = rewriter.create<memref::DimOp>(loc, originalOutput, 1);
-      ldC = rewriter.create<arith::IndexCastOp>(loc, i32Type, dimLdC);
+      Value dimLdC = memref::DimOp::create(rewriter, loc, originalOutput, 1);
+      ldC = arith::IndexCastOp::create(rewriter, loc, i32Type, dimLdC);
     }
 
     // Alpha and Beta scalars
-    Value alpha = rewriter.create<LLVM::ConstantOp>(
+    Value alpha = LLVM::ConstantOp::create(
+        rewriter,
         loc, f32Type, rewriter.getF32FloatAttr(1.0));
-    Value beta = rewriter.create<LLVM::ConstantOp>(
+    Value beta = LLVM::ConstantOp::create(
+        rewriter,
         loc, f32Type, rewriter.getF32FloatAttr(0.0));
 
     // Extract pointers from memrefs using LLVM operations
-    Value lhsPtr =
-        rewriter.create<LLVM::ExtractValueOp>(loc, lhs, ArrayRef<int64_t>{1});
-    Value rhsPtr =
-        rewriter.create<LLVM::ExtractValueOp>(loc, rhs, ArrayRef<int64_t>{1});
-    Value outputPtr = rewriter.create<LLVM::ExtractValueOp>(
+    Value lhsPtr = LLVM::ExtractValueOp::create(
+        rewriter, loc, lhs, ArrayRef<int64_t>{1});
+    Value rhsPtr = LLVM::ExtractValueOp::create(
+        rewriter, loc, rhs, ArrayRef<int64_t>{1});
+    Value outputPtr = LLVM::ExtractValueOp::create(
+        rewriter,
         loc, output, ArrayRef<int64_t>{1});
 
     // Create the function call
@@ -157,7 +151,7 @@ struct MatmulOpToBlasLibraryCall : public ConversionPattern {
                                K,     alpha,  lhsPtr,    ldA, rhsPtr,
                                ldB,   beta,   outputPtr, ldC};
 
-    rewriter.create<LLVM::CallOp>(loc, sgemmFunc, args);
+    LLVM::CallOp::create(rewriter, loc, sgemmFunc, args);
 
     // Erase the original matmul operation
     rewriter.eraseOp(matmulOp);
@@ -204,8 +198,9 @@ private:
     PatternRewriter::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
 
-    auto sgemmFunc = rewriter.create<LLVM::LLVMFuncOp>(rewriter.getUnknownLoc(),
-                                                       funcName, funcType);
+    auto sgemmFunc =
+        LLVM::LLVMFuncOp::create(rewriter, rewriter.getUnknownLoc(), funcName,
+                                 funcType);
     sgemmFunc.setPrivate();
 
     return sgemmFunc;
@@ -219,8 +214,6 @@ void ConvertMatmulToBlasLibraryCallPass::runOnOperation() {
 
   Operation *op = getOperation();
 
-  llvm::errs() << "Running ConvertMatmulToBlasLibraryCallPass\n";
-
   // Mark legal dialects
   target.addLegalDialect<func::FuncDialect, LLVM::LLVMDialect,
                          memref::MemRefDialect, arith::ArithDialect>();
@@ -232,12 +225,8 @@ void ConvertMatmulToBlasLibraryCallPass::runOnOperation() {
   LLVMTypeConverter typeConverter(&context);
   patterns.add<MatmulOpToBlasLibraryCall>(patterns.getContext(), typeConverter);
 
-  llvm::errs() << "About to apply conversion\n";
   if (failed(applyPartialConversion(op, target, std::move(patterns)))) {
-    llvm::errs() << "Conversion failed\n";
     signalPassFailure();
-  } else {
-    llvm::errs() << "Conversion succeeded\n";
   }
 }
 

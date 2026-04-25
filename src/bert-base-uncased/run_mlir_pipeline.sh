@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
 # First lower to TORCH (lower_bert_model.py), then use torch-mlir-opt -torch-backend-to-linalg-on-tensors-backend-pipeline bert_torch.mlir
 # to get to Linalg on Tensors.
 # This is because the direct fx.export_and_import to Linalg_on_Tensors does currently not work for the model.

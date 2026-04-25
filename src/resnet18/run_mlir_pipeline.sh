@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
 ###  Pipeline to get from linalg to llvm ir  ###
 
 torch-mlir-opt -torch-backend-to-linalg-on-tensors-backend-pipeline resnet18_model_torch.mlir > resnet18_model_linalg.mlir

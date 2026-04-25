@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
 ###  Pipeline to get from linalg to llvm dialect  ###
 # The object file is position independent code (PIC) and can be linked into a shared library.
 # This is to be able to call the function form python using cpython.

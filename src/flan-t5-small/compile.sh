@@ -1,4 +1,8 @@
-g++ -O3 -Wall -shared -std=c++17 -fPIC \
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+"${CXX:-g++}" -O3 -Wall -shared -std=c++17 -fPIC \
 	$(python -m pybind11 --includes) \
 	flan_call.cpp flan_llvm_test_ir.o \
 	-o flan_call$(python -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))") \
