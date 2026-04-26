@@ -52,6 +52,12 @@ Run GPU validation explicitly:
 bash src/validate_wsl.sh --gpu
 ```
 
+Run the lightweight GPU/Triton tutorial validation:
+
+```bash
+GPU_TUTORIAL_SIZE=1024 bash src/validate_gpu_tutorial.sh
+```
+
 ## Tutorial Content
 
 1. [Introduction](docs/Chapter1.md)
@@ -59,7 +65,10 @@ bash src/validate_wsl.sh --gpu
 3. [Importing PyTorch models to torch-mlir](docs/Chapter3.md)
 4. [Lowering models to x86 machine code](docs/Chapter4.md)
 5. [Integration of OpenBLAS for Matrix Multiplications](docs/Chapter5.md)
-6. [Targeting an Nvidia GPU](docs/Chapter6.md)
+6. [MLIR GPU walkthrough](docs/Chapter6.md)
+7. [Triton kernel walkthrough](docs/Chapter7.md)
+8. [Triton MLIR internals walkthrough](docs/Chapter8.md)
+9. [Heterogeneous compute walkthrough](docs/Chapter9.md)
 
 Appendix: [An overview of IREE](docs/iree_appendix.md)
 
@@ -68,3 +77,5 @@ Appendix: [An overview of IREE](docs/iree_appendix.md)
 - [Official MLIR website](https://mlir.llvm.org/)
 - [MLIR for Beginners](https://www.jeremykun.com/2023/08/10/mlir-getting-started/) by Jeremy Kun
 - [MLIR tutorial with GPU compilation](https://www.stephendiehl.com/tags/mlir/) by Stephen Diehl
+- [Official Triton tutorials](https://triton-lang.org/main/getting-started/tutorials/)
+- [IREE](https://iree.dev/)

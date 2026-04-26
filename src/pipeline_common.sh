@@ -14,6 +14,10 @@ pipeline_note() {
   echo "[mlir-tutorial] $*" >&2
 }
 
+pipeline_skip() {
+  echo "[mlir-tutorial] skip: $*" >&2
+}
+
 pipeline_require_file() {
   local path="$1"
   [[ -f "$path" ]] || pipeline_die "required file not found: $path"
@@ -61,6 +65,10 @@ PIPELINE_REPO_ROOT="$(cd -- "${PIPELINE_HELPER_DIR}/.." && pwd)"
 : "${OPENBLAS_DIR:=${PIPELINE_REPO_ROOT}/openblas}"
 : "${MLIR_RUNNER_LIB_DIR:=${TORCH_MLIR_BUILD_DIR}/lib}"
 : "${OPENBLAS_LIB_DIR:=}"
+: "${GPU_TUTORIAL_SIZE:=1024}"
+: "${TRITON_CACHE_DIR:=${PIPELINE_REPO_ROOT}/.triton-cache}"
+: "${TRITON_DUMP_DIR:=${PIPELINE_REPO_ROOT}/.triton-dumps}"
+: "${TRITON_HOME:=${PIPELINE_REPO_ROOT}/.triton-home}"
 : "${HF_HUB_DISABLE_PROGRESS_BARS:=1}"
 : "${TOKENIZERS_PARALLELISM:=false}"
 : "${TRANSFORMERS_NO_ADVISORY_WARNINGS:=1}"
@@ -71,6 +79,7 @@ if [[ -z "${PYTHONWARNINGS:-}" ]]; then
 fi
 
 export HF_HUB_DISABLE_PROGRESS_BARS
+export GPU_TUTORIAL_SIZE
 export TOKENIZERS_PARALLELISM
 export TRANSFORMERS_NO_ADVISORY_WARNINGS
 export TRANSFORMERS_VERBOSITY
@@ -167,6 +176,33 @@ pipeline_python_ext_suffix() {
 import sysconfig
 print(sysconfig.get_config_var("EXT_SUFFIX") or "")
 PY
+}
+
+pipeline_prepare_triton_dirs() {
+  mkdir -p "$TRITON_CACHE_DIR" "$TRITON_DUMP_DIR" "$TRITON_HOME"
+  export TRITON_CACHE_DIR TRITON_DUMP_DIR TRITON_HOME
+}
+
+pipeline_find_nvidia_smi() {
+  if [[ -n "${NVIDIA_SMI:-}" ]]; then
+    printf '%s\n' "$NVIDIA_SMI"
+    return 0
+  fi
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    command -v nvidia-smi
+    return 0
+  fi
+  if [[ -x /usr/lib/wsl/lib/nvidia-smi ]]; then
+    printf '%s\n' "/usr/lib/wsl/lib/nvidia-smi"
+    return 0
+  fi
+  return 1
+}
+
+pipeline_cuda_smoke() {
+  local nvidia_smi
+  nvidia_smi="$(pipeline_find_nvidia_smi)" || return 1
+  "$nvidia_smi" --query-gpu=name,compute_cap --format=csv,noheader
 }
 
 pipeline_resolve_cuda() {
