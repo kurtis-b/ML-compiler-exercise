@@ -30,7 +30,7 @@ sudo apt install -y \
 Clone the repo and initialize submodules:
 
 ```bash
-git clone git@github.com:kurtis-b/ML-compiler-exercise.git
+git clone <repo-url> ML-compiler-exercise
 cd ML-compiler-exercise
 git submodule sync --recursive
 git submodule update --init --recursive

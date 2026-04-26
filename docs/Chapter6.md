@@ -30,14 +30,14 @@ If you cannot use `sudo`, NVIDIA's runfile installer can install the toolkit to
 a user-writable path without installing a driver:
 
 ```bash
-bash cuda_12.3.2_545.23.08_linux.run \
+bash cuda_<version>_linux.run \
   --silent \
   --toolkit \
-  --toolkitpath="$HOME/cuda-12.3" \
+  --toolkitpath="$HOME/cuda-toolkit" \
   --no-man-page \
   --override
 
-export CUDA_HOME="$HOME/cuda-12.3"
+export CUDA_HOME="$HOME/cuda-toolkit"
 export CUDACXX="$CUDA_HOME/bin/nvcc"
 ```
 

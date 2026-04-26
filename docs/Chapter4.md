@@ -1,6 +1,6 @@
 # Chapter 4: Lowering models to x86 machine code
 
-As mentioned in the tutorials, we will use existing passes to lower our models to the LLVM exit dialect (GPU later). We create our own pipeline with all the passes, so at the end, we only have to run one pass that runs them all. This pipeline is defined in [tools/tutorials-opt.cpp](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/tools/tutorial-opt.cpp). I created two pipelines for demonstration, but they could also be merged. 
+As mentioned in the tutorials, we will use existing passes to lower our models to the LLVM exit dialect (GPU later). We create our own pipeline with all the passes, so at the end, we only have to run one pass that runs them all. This pipeline is defined in [tools/tutorial-opt.cpp](../tools/tutorial-opt.cpp). I created two pipelines for demonstration, but they could also be merged.
 
 The first one creates a bufferized version of the model.
 
@@ -92,7 +92,7 @@ llc --filetype=obj $PWD/sample_model_llvm_ir.ll
 g++ -c sample_call.cpp -o sample_call.o && g++ sample_call.o sample_model_llvm_ir.o -o a.out -L../../lib -lopenblas -lm
 ```
 
-In our C++ program [sample_call.cpp](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/sample/sample_call.cpp), we initialize the input tensor, set offset, size, and stride, i.e., we initialize our input and output MemRefDescriptor. We can then call the sample_model using the C wrapper interface. We pass both input and output Descriptors to the function and can thus access the output data, for example, via `float *output = (float *)outputMemRef.aligned;`. With the correct memory access (consider size and stride), we can print the output.    
+In our C++ program [sample_call.cpp](../src/sample/sample_call.cpp), we initialize the input tensor, set offset, size, and stride, i.e., we initialize our input and output MemRefDescriptor. We can then call the sample_model using the C wrapper interface. We pass both input and output Descriptors to the function and can thus access the output data, for example, via `float *output = (float *)outputMemRef.aligned;`. With the correct memory access (consider size and stride), we can print the output.
 
 Definition of the MemRefDescriptor struct:
 ``` C++
@@ -121,11 +121,11 @@ For the other models, we have to do a little bit more..
 
 ## Passing buffers as inputs
 When importing resnet, bert, gpt2 to torch-mlir (using torch.export()) some buffers of the model are moved out and are now part of the input. This seems to be the current default in torch-mlir/torch.export, as they also extract the buffers before executing the model in [this](https://github.com/llvm/torch-mlir/blob/main/projects/pt1/examples/fximporter_resnet18.py#L43) example.   
-- For the resnet18 model, I extract the params from the PyTorch model ((get_buffers_in_mlir_format.py)[https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/resnet18/get_buffers_in_mlir_format.py]) and hard code them into the mlir model. 
-- For the bert model, I [extract](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/bert-base-uncased/get_buffers.py) those buffers and directly write them to a .csv file. That file is later loaded in our C++ program. Here it is just two tensors, whereas for the resnet is about 60 arguments. Also, for the resnet model, in the MLIR code every third argument is of type !torch.vtensor<[],si64> and they are nowhere used in the code. GPT2 has also up to 20 arguments that are not used in the code. I couldn't find a pass that cleans up those dead/unused arguments. Neither in torch-mlir-opt, nor in mlir-opt. 
+- For the resnet18 model, [get_buffers.py](../src/resnet18/get_buffers.py) extracts parameters from the PyTorch model so the native runner can load them at runtime.
+- For the bert model, [get_buffers.py](../src/bert-base-uncased/get_buffers.py) extracts those buffers and directly writes them to a .csv file. That file is later loaded in our C++ program. Here it is just two tensors, whereas for the resnet is about 60 arguments. Also, for the resnet model, in the MLIR code every third argument is of type !torch.vtensor<[],si64> and they are nowhere used in the code. GPT2 has also up to 20 arguments that are not used in the code. I couldn't find a pass that cleans up those dead/unused arguments. Neither in torch-mlir-opt, nor in mlir-opt.
 
 ## Execution of bert-base-uncased
-The basic structure of [call_bert.cpp](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/src/bert-base-uncased/call_bert.cpp) is the same as before. 
+The basic structure of [call_bert.cpp](../src/bert-base-uncased/call_bert.cpp) is the same as before.
 
 But a few things have changed:
 1. We have a load_tensor() function that loads the buffers that we have previously written in a .csv file. We can now use this data and pass it to    our model as well.
@@ -139,7 +139,7 @@ struct Output {
 ```
 Here, we can now fit out Memrefs for those two output buffers and pass this struct to the model as the output buffer.
 
-3. In torch-mlir, I added [AtenAnyDimOp](https://github.com/DavidGinten/torch-mlir/blob/97bf9d2e6313abae5eb890748207baa178caeddf/lib/Conversion/TorchToLinalg/Reduction.cpp) in the reduction pass of TorchToLinalg. Without that, the op aten.any.dim.op wouldn't be lowered and that also keeps torch.constant.int op from being lowered to arith.constant. This then results in a `error: failed to legalize operation 'torch.constant.int'`. As mentioned in Chapter 3, the direct export to LINALG_ON_TENSORS still fails with this error, however, first going to TORCH and then to linalg via `-torch-backend-to-linalg-on-tensors-backend-pipeline` works. 
+3. The current WSL flow keeps `externals/torch-mlir` on upstream torch-mlir. When direct export to LINALG_ON_TENSORS hits a legalization gap, the model scripts first export to the Torch dialect and then route through `-torch-backend-to-linalg-on-tensors-backend-pipeline`.
 
 ## Execution of google's flan-t5-small
 For this model, I created dynmaic input_ids and output_ids. I use pybind11, so that we are able to call our model with varying inputs from python. Then the produced output tokens are also directly decoded into text. **In principle, this can be adapted for all the other models as well.**

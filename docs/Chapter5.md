@@ -9,8 +9,8 @@ sudo ldconfig
 
 or temporary: `export LD_LIBRARY_PATH=/ml-compiler-exercise/openblas/lib/:$LD_LIBRARY_PATH`
 
-We will now write our own pass that converts matrix multiplications (linalg matmuls). The pass is `-convert-matmul-to-blas`. In [tests/](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/tests/matmul_to_blas.mlir) you can run an example.
-The header file [ConvertMatMulToBlas.h](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/lib/ConvertMatMulToBlas.h) and the implementation [ConvertMatMulToBlas.cpp](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/lib/ConvertMatMulToBlas.cpp) is in `lib/`. 
+We will now write our own pass that converts matrix multiplications (linalg matmuls). The pass is `-convert-matmul-to-blas`. In [tests/](../tests/matmul_to_blas.mlir) you can run an example.
+The header file [ConvertMatMulToBlas.h](../lib/ConvertMatMulToBlas.h) and the implementation [ConvertMatMulToBlas.cpp](../lib/ConvertMatMulToBlas.cpp) is in `lib/`.
 
 In the header file we define our class:  
 
