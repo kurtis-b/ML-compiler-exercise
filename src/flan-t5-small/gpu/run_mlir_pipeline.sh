@@ -1,4 +1,14 @@
-mlir-opt flan_linalg.mlir \
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../pipeline_common.sh"
+cd "$PIPELINE_SCRIPT_DIR"
+
+pipeline_require_cuda_tools
+
+"$MLIR_OPT" flan_linalg.mlir \
   --convert-tensor-to-linalg \
   --linalg-generalize-named-ops \
   --linalg-fuse-elementwise-ops \
@@ -11,10 +21,10 @@ mlir-opt flan_linalg.mlir \
   --convert-parallel-loops-to-gpu \
   --canonicalize \
   --cse \
-| mlir-opt \
+| "$MLIR_OPT" \
   --pass-pipeline='builtin.module(func.func(affine-loop-invariant-code-motion))' \
   --pass-pipeline='builtin.module(func.func(convert-affine-for-to-gpu))' \
-| mlir-opt \
+| "$MLIR_OPT" \
   --gpu-kernel-outlining \
   --lower-affine \
   --gpu-decompose-memrefs \
@@ -23,13 +33,12 @@ mlir-opt flan_linalg.mlir \
   --convert-index-to-llvm \
   --arith-expand \
   --memref-expand \
-  --gpu-lower-to-nvvm-pipeline="cubin-chip=sm_90 cubin-features=+ptx80 opt-level=3" \
+  --gpu-lower-to-nvvm-pipeline="cubin-chip=sm_${MLIR_CUDA_ARCH} opt-level=3" \
   --convert-nvvm-to-llvm \
   --reconcile-unrealized-casts \
   --gpu-to-llvm='use-bare-pointers-for-host=false use-bare-pointers-for-kernels=false' \
   --gpu-module-to-binary \
   -o flan_nvvm.mlir
 
-mlir-translate -mlir-to-llvmir flan_nvvm.mlir -o flan.ll
-
-llc -filetype=obj -O3 flan.ll
+"$MLIR_TRANSLATE" -mlir-to-llvmir flan_nvvm.mlir -o flan.ll
+"$LLC" -filetype=obj -O3 flan.ll -o flan.o

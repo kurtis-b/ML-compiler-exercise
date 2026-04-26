@@ -1,7 +1,3 @@
-"""
-    Print the output of a sample cnn model given a tensor of ones as input.
-"""
-
 import torch
 from model import ConvolutionalNetwork
 
@@ -22,9 +18,7 @@ def print_output():
     model = ConvolutionalNetwork()
     input = torch.ones((4, 1, 28, 28))
     output = model(input)
-    print("Input shape: ", input.shape)
-    print("Output shape: ", output.shape)
-    print("Output: ", output)
+    print(" ".join(f"{value:.5f}" for value in output.flatten().detach().tolist()))
 
 if __name__ == "__main__":
    print_output()

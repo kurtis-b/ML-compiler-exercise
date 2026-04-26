@@ -2,20 +2,21 @@
 
 set -euo pipefail
 
-###  Pipeline to get from linalg to llvm dialect  ###
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../pipeline_common.sh"
+cd "$PIPELINE_SCRIPT_DIR"
 
-# For BLAS integration (Todo: Can be merged)
-../../build-ninja/tools/tutorial-opt --linalg-to-bufferization "$PWD/cnn_model_linalg.mlir" > "$PWD/cnn_model_buf_linalg.mlir"
-../../build-ninja/tools/tutorial-opt --llvm-request-c-wrappers --bufferization-to-llvm "$PWD/cnn_model_buf_linalg.mlir" > "$PWD/cnn_model_llvm.mlir"
+pipeline_require_common_tools
+pipeline_require_openblas
 
-###  Use mlir-translate to get from mlir to llvm ir  ###
-mlir-translate -mlir-to-llvmir "$PWD/cnn_model_llvm.mlir" > "$PWD/cnn_model_llvm_ir.ll"
+"$TUTORIAL_OPT" --linalg-to-bufferization "$PIPELINE_SCRIPT_DIR/cnn_model_linalg.mlir" > "$PIPELINE_SCRIPT_DIR/cnn_model_buf_linalg.mlir"
+"$TUTORIAL_OPT" --llvm-request-c-wrappers --bufferization-to-llvm "$PIPELINE_SCRIPT_DIR/cnn_model_buf_linalg.mlir" > "$PIPELINE_SCRIPT_DIR/cnn_model_llvm.mlir"
 
-###  Create .obj file  ###
-llc --filetype=obj "$PWD/cnn_model_llvm_ir.ll"
+"$MLIR_TRANSLATE" -mlir-to-llvmir "$PIPELINE_SCRIPT_DIR/cnn_model_llvm.mlir" > "$PIPELINE_SCRIPT_DIR/cnn_model_llvm_ir.ll"
 
-###  Compile  ###
+"$LLC" --filetype=obj "$PIPELINE_SCRIPT_DIR/cnn_model_llvm_ir.ll" -o "$PIPELINE_SCRIPT_DIR/cnn_model_llvm_ir.o"
+
 "${CXX:-g++}" -c cnn_call.cpp -o cnn_call.o
 "${CXX:-g++}" -no-pie cnn_call.o cnn_model_llvm_ir.o -o a.out \
-	-L../../openblas/lib -lopenblas \
-	-lm
+  -L"${OPENBLAS_LIB_DIR}" -lopenblas \
+  -lm

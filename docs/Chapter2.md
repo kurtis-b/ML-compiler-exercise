@@ -1,97 +1,128 @@
-# Chapter 2: Getting started and project setup
-*Warning*: Instructions are partially RWTH cluster-specific.
+# Chapter 2: Getting Started And Project Setup
+
+This chapter documents the WSL CPU setup. CUDA-on-WSL setup is covered in
+[Chapter 6](Chapter6.md).
 
 ## Project Structure
-The project is organized as follows:
-- **externals/** - Contains torch-mlir and, along with it, an in-tree checkout of LLVM/MLIR.
-- **lib/** - Stores our custom passes.
-- **src/** - Responsible for importing PyTorch models into MLIR, running the pass pipeline, and executing/benchmarking the models using C/C++.
-- **tools/** - Contains the pass pipeline configuration.
 
-Aside:
-In a typical setup, you would also have an include/ directory holding header files, while lib/ contains the implementation files. The lib/ directory often includes subdirectories for different categories of passes (e.g., lib/Transform). In this project, we place both headers and implementation files together in lib/, since we currently have only a small number of passes (just one at the moment).
+- `externals/` contains upstream torch-mlir and its LLVM/MLIR checkout.
+- `lib/` contains the tutorial pass implementation.
+- `src/` contains model import, lowering, compile, run, benchmark, and validation scripts.
+- `tools/` contains the `tutorial-opt` driver.
+- `tests/` contains the lit regression test for the tutorial pass.
 
-## Build
-Initalize the submodules (torch-mlir, llvm-project)
-`git submodule update --init --recursive`
+## WSL CPU Prerequisites
 
-Load PYTHON 3.12 before you start (or load by default in ~/zshrc)
-`module load PYTHON/3.12`
+Install the usual native build tools, Python, Ninja, CMake, and OpenBLAS:
 
-Set up a python virtual environment
+```bash
+sudo apt update
+sudo apt install -y \
+  build-essential \
+  cmake \
+  git \
+  libopenblas-dev \
+  ninja-build \
+  python3 \
+  python3-venv
 ```
-python3 -m venv dev
-source dev/bin/activate
-pip install --upgrade pip
+
+Clone the repo and initialize submodules:
+
+```bash
+git clone git@github.com:kurtis-b/ML-compiler-exercise.git
+cd ML-compiler-exercise
+git submodule sync --recursive
+git submodule update --init --recursive
 ```
 
-Install the latest requirements from torch-mlir (Files in torch-mlir folder).
-`python -m pip install -r requirements.txt -r torchvision-requirements.txt`
+The `externals/torch-mlir` submodule should point at upstream
+`https://github.com/llvm/torch-mlir.git`.
 
-Configuration for building torch-mlir with llvm in-tree.
-Use ccache and clang if available. (`module load Clang` on Cluster)
-Also refer to the torch-mlir [development guide](https://github.com/llvm/torch-mlir/blob/main/docs/development.md).
-You can also install the MLIR Python bindings from prebuilt wheels (See requirements.txt)
+## Python Environment
+
+Create and activate a repo-local virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install \
+  -r externals/torch-mlir/requirements.txt \
+  -r externals/torch-mlir/torchvision-requirements.txt
+python -m pip install pybind11 transformers sentencepiece
 ```
-cmake -GNinja -Bbuild \
-  `# Enables "--debug" and "--debug-only" flags for the "torch-mlir-opt" tool` \
+
+Heavy model validation may download Hugging Face assets. Set `HF_TOKEN` if you
+want authenticated downloads and higher rate limits.
+
+## Build torch-mlir For CPU
+
+Configure torch-mlir with LLVM/MLIR in-tree:
+
+```bash
+cd externals/torch-mlir
+cmake -GNinja -S externals/llvm-project/llvm -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_ASSERTIONS=ON \
   -DPython3_FIND_VIRTUALENV=ONLY \
   -DPython_FIND_VIRTUALENV=ONLY \
   -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
-  -DLLVM_TARGETS_TO_BUILD=host \
-  -DCMAKE_C_COMPILER=clang \
-  -DCMAKE_CXX_COMPILER=clang++ \
-  -DLLVM_ENABLE_LLD=ON \
-  -DLLVM_CCACHE_BUILD=ON \
-  `# For building LLVM "in-tree"` \
-  externals/llvm-project/llvm \
   -DLLVM_ENABLE_PROJECTS=mlir \
-  -DLLVM_EXTERNAL_PROJECTS="torch-mlir" \
+  -DLLVM_EXTERNAL_PROJECTS=torch-mlir \
   -DLLVM_EXTERNAL_TORCH_MLIR_SOURCE_DIR="$PWD" \
+  -DLLVM_TARGETS_TO_BUILD=host \
   -DTORCH_MLIR_ENABLE_PYTORCH_EXTENSIONS=ON \
   -DTORCH_MLIR_ENABLE_JIT_IR_IMPORTER=ON
+
+cmake --build build -- -j6
+cd ../..
 ```
 
-With GPU
-```
-cmake -GNinja -Bbuild \
-  `# Enables "--debug" and "--debug-only" flags for the "torch-mlir-opt" tool` \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_ASSERTIONS=ON \
-  -DPython3_FIND_VIRTUALENV=ONLY \
-  -DPython_FIND_VIRTUALENV=ONLY \
-  -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
-  -DLLVM_TARGETS_TO_BUILD=host \
-  `# For building LLVM "in-tree"` \
-  externals/llvm-project/llvm \
-  -DCUDACXX=/path/to/nvcc \
-  -DCUDA_PATH=/path/to/cuda \
-  -DCMAKE_CUDA_ARCHITECTURES="90" \ # Use your CUDA GPU Compute Capability
-  -DCMAKE_C_COMPILER=clang \
-  -DCMAKE_CXX_COMPILER=clang++ \
-  -DCMAKE_CUDA_COMPILER=/path/to/nvcc \
-  -DLLVM_ENABLE_PROJECTS=mlir \
-  -DLLVM_TARGETS_TO_BUILD="Native;NVPTX" \
-  -DLLVM_CCACHE_BUILD=OFF  \
-  -DMLIR_ENABLE_CUDA_RUNNER=ON \
-  -DMLIR_ENABLE_CUDA_CONVERSIONS=ON \
-  -DMLIR_ENABLE_NVPTXCOMPILER=ON \
-  -DLLVM_EXTERNAL_PROJECTS="torch-mlir" \
-  -DLLVM_EXTERNAL_TORCH_MLIR_SOURCE_DIR="$PWD" \
-  -DTORCH_MLIR_ENABLE_PYTORCH_EXTENSIONS=ON \
-  -DTORCH_MLIR_ENABLE_JIT_IR_IMPORTER=ON \
+Use fewer or more build jobs by changing `-j6`.
+
+## Build This Tutorial
+
+`build.sh` is the supported top-level entrypoint. It is incremental and does not
+delete `build-ninja` on each run.
+
+```bash
+source .venv/bin/activate
+export TORCH_MLIR_SOURCE_DIR="$PWD/externals/torch-mlir"
+export TORCH_MLIR_BUILD_DIR="$PWD/externals/torch-mlir/build"
+export BUILD_JOBS=6
+
+bash build.sh
+cmake --build build-ninja --target check-mlir-tutorial -- -j6
 ```
 
-Then build with ninja: `ninja -C build`
+## Validate CPU Pipelines
 
+Run the opt-in WSL validation script:
 
-In dev/bin/activate, add the following (adapt the path if necessary):
+```bash
+bash src/validate_wsl.sh
 ```
-# Add torch-mlir-opt to PATH
-export PATH="/home/ab123456/ml-compiler-exercise/externals/torch-mlir/build/bin/:$PATH"
 
-# Add MLIR Python bindings and Set up Python Environment to export the built Python packages
-export PYTHONPATH=/home/ab123456/ml-compiler-exercise/externals/torch-mlir/build/tools/mlir/python_packages/mlir_core:/home/ab123456/ml-compiler-exercise/externals/torch-mlir/build/tools/torch-mlir/python_packages/torch_mlir:/home/ab123456/ml-compiler-exercise/externals/torch-mlir/test/python/fx_importer
-```
+It validates:
+
+- `sample`
+- `mnist`
+- `cnn`
+- `resnet18`
+- `bert-base-uncased`
+- `flan-t5-small`
+- `gpt`
+
+Numeric models compare MLIR output against PyTorch output. Flan and GPT compare
+generated token IDs. The GPT flow defaults to `sshleifer/tiny-gpt2`; use
+`GPT_MODEL_NAME=gpt2` to try full GPT-2.
+
+## Environment Knobs
+
+- `TORCH_MLIR_BUILD_DIR` defaults to `externals/torch-mlir/build`.
+- `TORCH_MLIR_SOURCE_DIR` defaults to `externals/torch-mlir`.
+- `OPENBLAS_DIR` defaults to `openblas`.
+- `OPENBLAS_LIB_DIR` overrides OpenBLAS library discovery directly.
+- `BUILD_JOBS` controls the build parallelism used by `build.sh`.
+- `GPT_MODEL_NAME`, `GPT_PROMPT`, and `GPT_MAX_NEW_TOKENS` customize GPT validation.

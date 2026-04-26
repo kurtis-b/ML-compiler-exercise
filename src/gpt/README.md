@@ -1,7 +1,26 @@
-MLIR pass works, i.e. model can be lowered with MLIR is available as object code.
+# GPT
 
-TODO: The following arguments are not used in the MLIR code and thus can be evicted. But so far, I couldn't find a pass that cleans up those dead/unused arguments.
+The default end-to-end GPT flow uses `sshleifer/tiny-gpt2`, which keeps local
+WSL validation practical while still exercising a GPT-2-compatible causal LM.
+Set `GPT_MODEL_NAME=gpt2` to try full GPT-2.
 
+CPU flow:
+
+```bash
+python lower_gpt_model.py
+bash run_mlir_pipeline.sh
+bash compile.sh
+python run_gpt.py > pytorch_output.txt
+python run_gpt_model_mlir.py > mlir_output.txt
 ```
-%arg0: tensor<1x1x1024x1024xi1>, %arg1: tensor<f32>, %arg2: tensor<1x1x1024x1024xi1>, %arg3: tensor<f32>, %arg4: tensor<1x1x1024x1024xi1>, %arg5: tensor<f32>, %arg6: tensor<1x1x1024x1024xi1>, %arg7: tensor<f32>, %arg8: tensor<1x1x1024x1024xi1>, %arg9: tensor<f32>, %arg10: tensor<1x1x1024x1024xi1>, %arg11: tensor<f32>, %arg12: tensor<1x1x1024x1024xi1>, %arg13: tensor<f32>, %arg14: tensor<1x1x1024x1024xi1>, %arg15: tensor<f32>, %arg16: tensor<1x1x1024x1024xi1>, %arg17: tensor<f32>, %arg18: tensor<1x1x1024x1024xi1>, %arg19: tensor<f32>, %arg20: tensor<1x1x1024x1024xi1>, %arg21: tensor<f32>, %arg22: tensor<1x1x1024x1024xi1>, %arg23: tensor<f32>
+
+`gpt_call.cpp` is a pybind11 bridge that calls the MLIR-compiled decoder and
+performs greedy token generation.
+
+Useful knobs:
+
+```bash
+export GPT_MODEL_NAME=sshleifer/tiny-gpt2
+export GPT_PROMPT="What is the capital of France?"
+export GPT_MAX_NEW_TOKENS=10
 ```

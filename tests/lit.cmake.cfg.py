@@ -29,7 +29,10 @@ config.substitutions.append(("%shlibext", config.llvm_shlib_ext))
 config.substitutions.append(("%project_source_dir", config.project_source_dir))
 
 # Add Torch-MLIR and MLIR Python bindings
-torch_mlir_build_dir = os.path.join(config.project_source_dir, "externals", "torch-mlir", "build")
+torch_mlir_build_dir = os.environ.get(
+    "TORCH_MLIR_BUILD_DIR",
+    os.path.join(config.project_source_dir, "externals", "torch-mlir", "build"),
+)
 torch_mlir_python_dir = os.path.join(torch_mlir_build_dir, "tools", "torch-mlir", "python_packages", "torch_mlir")
 mlir_python_dir = os.path.join(torch_mlir_build_dir, "tools", "mlir", "python_packages", "mlir_core")
 

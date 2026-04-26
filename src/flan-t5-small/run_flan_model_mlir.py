@@ -1,6 +1,5 @@
 """
-    Print the output of a sample model given an example text input
-	using the MLIR lowered version of the model.
+Print the output of the MLIR-lowered Flan-T5 model for a fixed prompt.
 """
 from transformers import T5Tokenizer
 
@@ -15,4 +14,4 @@ print("Corresponding attention mask: ", input.attention_mask)
 import flan_call
 result = flan_call.generate_tokens(input.input_ids.tolist()[0], input.attention_mask.tolist()[0])
 print("Generated tokens: ", result)
-print(tokenizer.decode(result))
+print(tokenizer.decode(result, skip_special_tokens=True))

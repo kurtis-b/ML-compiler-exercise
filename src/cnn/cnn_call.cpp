@@ -59,7 +59,6 @@ int main(int argc, char *argv[]) {
   float *output = (float *)outputMemRef.aligned;
 
   for (int64_t i = 0; i < output_sizes[0]; ++i) {
-    std::cout << "Batch " << i << ": ";
     for (int64_t j = 0; j < output_sizes[1]; ++j)
       std::cout << std::fixed << std::setprecision(5)
                 << output[i * output_strides[0] + j] << ' ';

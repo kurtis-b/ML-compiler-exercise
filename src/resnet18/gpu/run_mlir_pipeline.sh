@@ -1,7 +1,14 @@
-# Try --pass-pipeline='builtin.module(func.func(affine-loop-tile{tile-size=16}))' \
-# for performance (16, 32, 64, 128, 256, ...)
-# Currently this yields CUDA_ERROR_ILLEGAL_ADDRESS
-mlir-opt resnet18_model_linalg.mlir \
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../pipeline_common.sh"
+cd "$PIPELINE_SCRIPT_DIR"
+
+pipeline_require_cuda_tools
+
+"$MLIR_OPT" resnet18_model_linalg.mlir \
   --convert-tensor-to-linalg \
   --linalg-generalize-named-ops \
   --linalg-fuse-elementwise-ops \
@@ -14,10 +21,10 @@ mlir-opt resnet18_model_linalg.mlir \
   --convert-parallel-loops-to-gpu \
   --canonicalize \
   --cse \
-| mlir-opt \
+| "$MLIR_OPT" \
   --pass-pipeline='builtin.module(func.func(affine-loop-invariant-code-motion))' \
   --pass-pipeline='builtin.module(func.func(convert-affine-for-to-gpu))' \
-| mlir-opt \
+| "$MLIR_OPT" \
   --gpu-kernel-outlining \
   --lower-affine \
   --gpu-decompose-memrefs \
@@ -26,13 +33,12 @@ mlir-opt resnet18_model_linalg.mlir \
   --convert-index-to-llvm \
   --arith-expand \
   --memref-expand \
-  --gpu-lower-to-nvvm-pipeline="cubin-chip=sm_90 cubin-features=+ptx80 opt-level=3" \
+  --gpu-lower-to-nvvm-pipeline="cubin-chip=sm_${MLIR_CUDA_ARCH} opt-level=3" \
   --convert-nvvm-to-llvm \
   --reconcile-unrealized-casts \
   --gpu-to-llvm='use-bare-pointers-for-host=false use-bare-pointers-for-kernels=false' \
   --gpu-module-to-binary \
   -o resnet18_nvvm.mlir
 
-mlir-translate -mlir-to-llvmir resnet18_nvvm.mlir -o resnet18.ll
-
-llc -filetype=obj -O3 resnet18.ll
+"$MLIR_TRANSLATE" -mlir-to-llvmir resnet18_nvvm.mlir -o resnet18.ll
+"$LLC" -filetype=obj -O3 resnet18.ll -o resnet18.o

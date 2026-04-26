@@ -1,5 +1,14 @@
-# Play with tile size for performance (16, 32, 64, 128, 256, ...) 
-mlir-opt cnn_model_linalg.mlir \
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../pipeline_common.sh"
+cd "$PIPELINE_SCRIPT_DIR"
+
+pipeline_require_cuda_tools
+
+"$MLIR_OPT" cnn_model_linalg.mlir \
   --convert-tensor-to-linalg \
   --linalg-generalize-named-ops \
   --one-shot-bufferize="bufferize-function-boundaries function-boundary-type-conversion=identity-layout-map" \
@@ -10,10 +19,10 @@ mlir-opt cnn_model_linalg.mlir \
   --affine-loop-tile="tile-size=64" \
   --canonicalize \
   --cse \
-| mlir-opt \
+| "$MLIR_OPT" \
   --pass-pipeline='builtin.module(func.func(affine-loop-invariant-code-motion))' \
   --pass-pipeline='builtin.module(func.func(convert-affine-for-to-gpu))' \
-| mlir-opt \
+| "$MLIR_OPT" \
   --gpu-kernel-outlining \
   --lower-affine \
   --gpu-decompose-memrefs \
@@ -22,13 +31,12 @@ mlir-opt cnn_model_linalg.mlir \
   --convert-index-to-llvm \
   --arith-expand \
   --memref-expand \
-  --gpu-lower-to-nvvm-pipeline="cubin-chip=sm_90 cubin-features=+ptx80 opt-level=3" \
+  --gpu-lower-to-nvvm-pipeline="cubin-chip=sm_${MLIR_CUDA_ARCH} opt-level=3" \
   --convert-nvvm-to-llvm \
   --reconcile-unrealized-casts \
   --gpu-to-llvm='use-bare-pointers-for-host=true use-bare-pointers-for-kernels=true' \
   --gpu-module-to-binary \
   -o cnn_nvvm.mlir
 
-mlir-translate -mlir-to-llvmir cnn_nvvm.mlir -o cnn.ll
-
-llc -filetype=obj -O3 cnn.ll
+"$MLIR_TRANSLATE" -mlir-to-llvmir cnn_nvvm.mlir -o cnn.ll
+"$LLC" -filetype=obj -O3 cnn.ll -o cnn.o

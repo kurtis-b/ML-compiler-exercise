@@ -2,13 +2,21 @@
 
 set -euo pipefail
 
-# First lower to TORCH (lower_bert_model.py), then use torch-mlir-opt -torch-backend-to-linalg-on-tensors-backend-pipeline bert_torch.mlir
-# to get to Linalg on Tensors.
-# This is because the direct fx.export_and_import to Linalg_on_Tensors does currently not work for the model.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../pipeline_common.sh"
+cd "$PIPELINE_SCRIPT_DIR"
 
-torch-mlir-opt -torch-backend-to-linalg-on-tensors-backend-pipeline bert_torch_both.mlir \
-| ../../build-ninja/tools/tutorial-opt -linalg-to-bufferization \
-| ../../build-ninja/tools/tutorial-opt -llvm-request-c-wrappers \
-| ../../build-ninja/tools/tutorial-opt -bufferization-to-llvm \
-| mlir-translate -mlir-to-llvmir \
-| llc --filetype=obj -O3 -o bert_llvm_ir.o
+pipeline_require_torch_mlir_tools
+
+if [[ -f bert_torch.mlir ]]; then
+  source_ir="bert_torch.mlir"
+elif [[ -f bert_torch_both.mlir ]]; then
+  source_ir="bert_torch_both.mlir"
+else
+  pipeline_die "expected bert_torch.mlir in ${PIPELINE_SCRIPT_DIR}"
+fi
+
+"$TORCH_MLIR_OPT" -torch-backend-to-linalg-on-tensors-backend-pipeline "$source_ir" > bert_linalg.mlir
+"$TUTORIAL_OPT" -linalg-to-bufferization bert_linalg.mlir > bert_buf_linalg.mlir
+"$TUTORIAL_OPT" -llvm-request-c-wrappers -bufferization-to-llvm bert_buf_linalg.mlir > bert_llvm.mlir
+"$MLIR_TRANSLATE" -mlir-to-llvmir bert_llvm.mlir | "$LLC" --filetype=obj -O3 -o bert_llvm_ir.o

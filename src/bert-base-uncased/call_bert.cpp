@@ -1,12 +1,11 @@
-#include <fstream>
-#include <iostream>
-#include <vector>
-
 #include <cstdint>
 #include <cstdio>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <math.h>
+#include <sstream>
+#include <vector>
 
 // Load the buffers from CSV file that was saved from PyTorch (get_buffers.py)
 std::vector<std::vector<int64_t>> load_tensor() {
@@ -120,10 +119,7 @@ int main(int argc, char *argv[]) {
   float *output_pooler_output =
       (float *)result.output_pooler_output_MemRef.aligned;
 
-  // Print the first 10 values of each of the 12 output vectors
-  int count = 0, i, j;
-  std::cout << "Last hidden state (first 10 values of each of the 12 vectors):"
-            << std::endl;
+  int i, j;
   for (i = 0; i < 12; ++i) {
     for (j = 0; j < 10; ++j) {
       std::cout << std::fixed << std::setprecision(5)
@@ -132,8 +128,7 @@ int main(int argc, char *argv[]) {
     std::cout << std::endl;
   }
 
-  // Print the first 10 values of the pooler output
-  std::cout << "\nPooler output:" << std::endl;
+  std::cout << std::endl;
   for (i = 0; i < 10; ++i) {
     std::cout << std::fixed << std::setprecision(5) << output_pooler_output[i]
               << ' ';

@@ -1,34 +1,70 @@
 # ML compiler exercise
 
-## Abstract
+This tutorial demonstrates an end-to-end MLIR flow for lowering PyTorch and
+Hugging Face models to executable CPU and NVIDIA GPU binaries. It uses upstream
+[torch-mlir](https://github.com/llvm/torch-mlir), MLIR lowering pipelines, a
+small custom OpenBLAS rewrite pass, and model-specific C++/pybind runners.
 
-This is an open-source, online tutorial that provides an end-to-end introduction to MLIR, demonstrating how deep learning models can be lowered from a machine learning framework to executable binaries. Aimed at newcomers and university students, the tutorial focuses on conveying the core concepts of the MLIR compilation flow rather than on performance optimization. Using torch-mlir, upstream MLIR passes, and a custom lowering pass targeting OpenBLAS, the talk illustrates how to build and extend a practical ML compilation pipeline targeting both CPU and NVIDIA GPU backends. The tutorial is designed to lower the barrier to entry and broaden participation in the MLIR community. From a newcomer to other newcomers, so to speak.
+## Supported WSL Flows
 
-## Tutorial content
+The WSL CPU flow is supported for:
 
-The repo provides some PyTorch models (small sample models and real world models) and provides the following:
-1. Import models from PyTorch and HF to MLIR using [torch-mlir](https://github.com/llvm/torch-mlir)
-2. Use existing MLIR passes to lower from entry level IR's (linalg, arith, ...) to llvm ir
-3. Create the corrsponding object file
-4. Call the model via a function call in C++
+- `sample`
+- `mnist`
+- `cnn`
+- `resnet18`
+- `bert-base-uncased`
+- `flan-t5-small`
+- `gpt`
 
-Additionally, I created a pass that converts linalg.matmul's to [OpenBLAS](https://github.com/OpenMathLib/OpenBLAS) matrix-multiplication function calls. Further, I target an Nvidia GPU (sm_90) to launch specific kenrels on the GPU (This currently only works for sample and the mnist model). 
+The CUDA-on-WSL flow is intended for:
 
-*Warning*: Some instructions are RWTH cluster specific, e.g. paths.
+- `sample`
+- `mnist`
+- `cnn`
+- `resnet18`
+- `flan-t5-small`
 
-1. [Introduction](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter1.md)
-2. [Getting started and project setup](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter2.md)
-3. [Importing PyTorch models to torch-mlir](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter3.md)
-4. [Lowering models to x86 machine code](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter4.md)
-5. [Integration of OpenBLAS for Matrix Multiplications](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter5.md)
-6. [Targeting an Nvidia GPU](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter6.md)
+GPU validation requires a CUDA-enabled torch-mlir build and `nvcc` inside WSL.
 
-*Appendix*: [An overview of IREE](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/iree_appendix.md)
+The `gpt` pipeline defaults to `sshleifer/tiny-gpt2` so the end-to-end lowering
+is practical on a local machine. Use `GPT_MODEL_NAME=gpt2` to try full GPT-2;
+that path is much heavier and can produce very large intermediate MLIR.
 
 ## Build
-See [Chapter 2](https://github.com/DavidGinten/ML-compiler-exercise/blob/main/docs/Chapter2.md) in the docs.
+
+See [Chapter 2](docs/Chapter2.md) for the CPU setup and top-level build. See
+[Chapter 6](docs/Chapter6.md) for CUDA-on-WSL setup.
+
+Quick WSL validation after torch-mlir is built:
+
+```bash
+export TORCH_MLIR_BUILD_DIR="$PWD/externals/torch-mlir/build"
+export TORCH_MLIR_SOURCE_DIR="$PWD/externals/torch-mlir"
+bash build.sh
+cmake --build build-ninja --target check-mlir-tutorial -- -j6
+bash src/validate_wsl.sh
+```
+
+Run GPU validation explicitly:
+
+```bash
+bash src/validate_wsl.sh --gpu
+```
+
+## Tutorial Content
+
+1. [Introduction](docs/Chapter1.md)
+2. [Getting started and project setup](docs/Chapter2.md)
+3. [Importing PyTorch models to torch-mlir](docs/Chapter3.md)
+4. [Lowering models to x86 machine code](docs/Chapter4.md)
+5. [Integration of OpenBLAS for Matrix Multiplications](docs/Chapter5.md)
+6. [Targeting an Nvidia GPU](docs/Chapter6.md)
+
+Appendix: [An overview of IREE](docs/iree_appendix.md)
 
 ## References
-- [Official MLIR website](https://mlir.llvm.org/) 
+
+- [Official MLIR website](https://mlir.llvm.org/)
 - [MLIR for Beginners](https://www.jeremykun.com/2023/08/10/mlir-getting-started/) by Jeremy Kun
 - [MLIR tutorial with GPU compilation](https://www.stephendiehl.com/tags/mlir/) by Stephen Diehl

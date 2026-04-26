@@ -2,21 +2,22 @@
 
 set -euo pipefail
 
-###  Pipeline to get from linalg to llvm dialect  ###
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../pipeline_common.sh"
+cd "$PIPELINE_SCRIPT_DIR"
 
-# With BLAS integration (Todo: merge)
-../../build-ninja/tools/tutorial-opt --linalg-to-bufferization "$PWD/mnist_model_linalg.mlir" > "$PWD/mnist_model_buf_linalg.mlir"
-../../build-ninja/tools/tutorial-opt --llvm-request-c-wrappers --bufferization-to-llvm "$PWD/mnist_model_buf_linalg.mlir" > "$PWD/mnist_model_llvm.mlir"
+pipeline_require_common_tools
+pipeline_require_openblas
 
-###  Use mlir-translate to get from mlir to llvm ir  ###
-mlir-translate -mlir-to-llvmir "$PWD/mnist_model_llvm.mlir" > "$PWD/mnist_model_llvm_ir.ll"
+"$TUTORIAL_OPT" --linalg-to-bufferization "$PIPELINE_SCRIPT_DIR/mnist_model_linalg.mlir" > "$PIPELINE_SCRIPT_DIR/mnist_model_buf_linalg.mlir"
+"$TUTORIAL_OPT" --llvm-request-c-wrappers --bufferization-to-llvm "$PIPELINE_SCRIPT_DIR/mnist_model_buf_linalg.mlir" > "$PIPELINE_SCRIPT_DIR/mnist_model_llvm.mlir"
 
-###  Create .obj file  ###
-llc --filetype=obj "$PWD/mnist_model_llvm_ir.ll"
+"$MLIR_TRANSLATE" -mlir-to-llvmir "$PIPELINE_SCRIPT_DIR/mnist_model_llvm.mlir" > "$PIPELINE_SCRIPT_DIR/mnist_model_llvm_ir.ll"
 
-###  Compile  ###
+"$LLC" --filetype=obj "$PIPELINE_SCRIPT_DIR/mnist_model_llvm_ir.ll" -o "$PIPELINE_SCRIPT_DIR/mnist_model_llvm_ir.o"
+
 "${CXX:-g++}" -c mnist_call.cpp -o mnist_call.o
 "${CXX:-g++}" -no-pie mnist_call.o mnist_model_llvm_ir.o -o a.out \
-	-L../../externals/torch-mlir/build/lib -lmlir_c_runner_utils \
-	-L../../openblas/lib -lopenblas \
-	-Wl,-rpath=../../externals/torch-mlir/build/lib
+  -L"${MLIR_RUNNER_LIB_DIR}" -lmlir_c_runner_utils \
+  -L"${OPENBLAS_LIB_DIR}" -lopenblas \
+  -Wl,-rpath="${MLIR_RUNNER_LIB_DIR}"

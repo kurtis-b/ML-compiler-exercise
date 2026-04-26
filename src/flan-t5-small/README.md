@@ -1,9 +1,25 @@
-- `python lower_flan_model.py` to import the Pytorch model to mlir using torch-mlir
-- `python run_flan_model.py` to print the output with sample input
-- `python benchmark_flan_model.py` to benchmark the sample model
-- `sh run_mlir_pipeline.sh` to get the executable that runs the with MLIR lowered PyTorch model.
-- `sh generate_and_decode.sh` calls the compiled FLAN T5 small model and decodes the output sequence.
+# Flan-T5 Small
 
-### Benchnmark results:
-- PyTorch avg. inference time (CPU): 0.1178 sec
-- MLIR pipeline avg. inference time (CPU): 0.397444 sec
+CPU flow:
+
+```bash
+python lower_flan_autoregressive.py
+bash run_mlir_pipeline.sh
+bash compile.sh
+python run_flan_model.py > pytorch_output.txt
+python run_flan_model_mlir.py > mlir_output.txt
+```
+
+`run_flan_model_mlir.py` uses the pybind11 bridge in `flan_call.cpp` to run
+greedy token generation through the MLIR-compiled decoder.
+
+GPU flow:
+
+```bash
+python lower_flan_autoregressive.py
+cp flan_linalg_test.mlir gpu/flan_linalg.mlir
+cd gpu
+bash run_mlir_pipeline.sh
+bash compile.sh
+./a.out
+```

@@ -1,7 +1,3 @@
-"""
-    Print the output of a sample model given an example text input.
-"""
-
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-small")
@@ -15,8 +11,12 @@ print(f'Input text: "{input_text}"')
 print("Corresponding input IDs: ", input.input_ids)
 print("Corresponding attention: ", input.attention_mask)
 
-# Run the model to get output IDs
-outputs = model.generate(input.input_ids)
+outputs = model.generate(
+    input.input_ids,
+    attention_mask=input.attention_mask,
+    do_sample=False,
+    max_new_tokens=20,
+)
 
-print("Output IDs: ", outputs)
-print("Decoded output: ", tokenizer.decode(outputs[0]))
+print("Output IDs: ", outputs[0].tolist())
+print("Decoded output: ", tokenizer.decode(outputs[0], skip_special_tokens=True))

@@ -1,13 +1,28 @@
-Currently, when impoting the resnet model to torch-mlir (using torch.export()) 
-many params of the model are expected to be passed as input. The number of input tensors 
-increases from 1 to over 500. My solution by now isn't pretty, but it works. 
-Basically I extract the params from the model and manually insert them into the mlir model.
+# ResNet18
 
-### Benchnmark results:
-- PyTorch avg. inference time (CPU): 0.045876 sec
-- MLIR pipeline avg. inference time (CPU): 6.889084 sec
-- MLIR pipeline avg. inference time (GPU): 0.619498 sec
+ResNet18 exports batch-normalization running statistics as additional memref
+arguments. `get_buffers.py` writes those buffers to `resnet18_buffers.csv`, and
+`resnet18_call.cpp` loads them before calling the MLIR C interface.
 
+CPU flow:
 
-TODO: Usually, in our MLIR code every third argument is !torch.vtensor<[],si64> and they are nowhere used in the code.
-I couldn't find a pass that cleans up those dead/unused arguments.
+```bash
+python lower_resnet18_model.py
+python get_buffers.py
+bash run_mlir_pipeline.sh
+bash compile.sh
+python run_resnet18_model.py > pytorch_output.txt
+./a.out > mlir_output.txt
+python ../compare_outputs.py mlir_output.txt pytorch_output.txt
+```
+
+GPU flow:
+
+```bash
+python lower_resnet18_model.py
+cp resnet18_model_linalg.mlir gpu/
+cd gpu
+bash run_mlir_pipeline.sh
+bash compile.sh
+./a.out
+```
